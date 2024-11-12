@@ -1,0 +1,166 @@
+/* Styles de base et animations */
+:root {
+    --primary: #9333ea;    /* Purple */
+    --secondary: #4f46e5;  /* Indigo */
+    --accent: #f472b6;     /* Pink */
+}
+
+/* Animations personnalisées */
+@keyframes pulse-subtle {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.02); }
+    100% { transform: scale(1); }
+}
+
+@keyframes float {
+    0% { transform: translateY(0px); }
+    50% { transform: translateY(-10px); }
+    100% { transform: translateY(0px); }
+}
+
+@keyframes gradient-shift {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+
+/* Styles généraux */
+body {
+    background-size: 200% 200%;
+    animation: gradient-shift 15s ease infinite;
+    font-family: 'Inter', sans-serif;
+}
+
+/* Éléments interactifs */
+button, input, select {
+    transition: all 0.3s ease;
+}
+
+button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(147, 51, 234, 0.3);
+}
+
+input:focus, select:focus {
+    transform: scale(1.02);
+}
+
+/* Timer */
+#timer {
+    animation: pulse-subtle 2s infinite;
+}
+
+/* Cards et conteneurs */
+.bg-gray-800 {
+    box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+    backdrop-filter: blur(8px);
+    transition: transform 0.3s ease;
+}
+
+.bg-gray-800:hover {
+    transform: translateY(-4px);
+}
+
+/* Effets de survol */
+#playersList > div:hover {
+    background: rgba(255, 255, 255, 0.1);
+    transform: scale(1.02);
+}
+
+/* Animations pour les missions */
+#currentMission {
+    animation: float 6s ease-in-out infinite;
+}
+
+/* Badge de score */
+.score-badge {
+    background: linear-gradient(45deg, var(--primary), var(--secondary));
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    font-weight: 600;
+    animation: pulse-subtle 2s infinite;
+}
+
+/* Joker button spécial */
+#useJoker {
+    background: linear-gradient(45deg, var(--accent), var(--primary));
+    background-size: 200% 200%;
+    animation: gradient-shift 3s ease infinite;
+}
+
+/* Loading spinner */
+.loading-spinner {
+    border: 4px solid rgba(255, 255, 255, 0.1);
+    border-left-color: var(--primary);
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    100% { transform: rotate(360deg); }
+}
+
+/* Style pour mobile */
+@media (max-width: 768px) {
+    .container {
+        padding-top: 1rem;
+    }
+    
+    #currentMission {
+        margin-bottom: 1rem;
+    }
+    
+    .grid {
+        gap: 1rem;
+    }
+    
+    button {
+        padding: 0.75rem 1rem;
+    }
+}
+
+/* Notifications stylées */
+.notification {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    padding: 1rem;
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.8);
+    backdrop-filter: blur(8px);
+    color: white;
+    z-index: 1000;
+    animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+    from { transform: translateX(100%); }
+    to { transform: translateX(0); }
+}
+
+/* État actif du joueur */
+.player-active {
+    border-left: 4px solid var(--accent);
+    padding-left: 0.5rem;
+}
+
+/* Timer circulaire */
+.timer-circle {
+    position: relative;
+    width: 60px;
+    height: 60px;
+}
+
+.timer-circle-bg {
+    fill: none;
+    stroke: rgba(255, 255, 255, 0.2);
+}
+
+.timer-circle-progress {
+    fill: none;
+    stroke: var(--primary);
+    stroke-linecap: round;
+    transition: stroke-dashoffset 1s linear;
+}
