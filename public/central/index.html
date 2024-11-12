@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Splenderra : Legend IA - Écran Central</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.1/socket.io.js"></script>
+</head>
+<body class="bg-gray-900 text-white min-h-screen">
+    <!-- Écran de création/connexion -->
+    <div id="loginScreen" class="container mx-auto px-4 py-8">
+        <h1 class="text-4xl font-bold text-center mb-8">Splenderra : Legend IA</h1>
+        <div class="max-w-md mx-auto bg-gray-800 rounded-lg p-6">
+            <button id="createGame" class="w-full bg-purple-600 text-white py-3 rounded-lg mb-4 hover:bg-purple-700">
+                Créer une nouvelle partie
+            </button>
+            <div class="text-center text-gray-400">ou</div>
+            <div class="mt-4">
+                <input type="text" id="joinGameCode" placeholder="Code de partie" 
+                    class="w-full bg-gray-700 text-white px-4 py-3 rounded-lg mb-4">
+                <button id="joinGame" class="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700">
+                    Rejoindre une partie
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Écran principal de jeu -->
+    <div id="gameScreen" class="hidden container mx-auto px-4 py-8">
+        <div class="max-w-4xl mx-auto">
+            <!-- En-tête -->
+            <div class="flex justify-between items-center mb-8">
+                <h2 class="text-3xl font-bold">Partie en cours</h2>
+                <div id="gameCode" class="bg-gray-800 px-4 py-2 rounded-lg"></div>
+            </div>
+
+            <!-- Mission actuelle -->
+            <div id="currentMission" class="bg-gray-800 rounded-lg p-6 mb-8 hidden">
+                <div class="mb-4">
+                    <h3 class="text-xl font-bold mb-2">Mission</h3>
+                    <p id="missionText" class="text-lg"></p>
+                </div>
+                <div class="mb-4">
+                    <h3 class="text-xl font-bold mb-2">Suggestion</h3>
+                    <p id="suggestionText" class="text-gray-300"></p>
+                </div>
+                <div class="flex justify-between items-center mt-4">
+                    <div id="timerDisplay" class="text-2xl font-bold">2:00</div>
+                    <button id="startTimer" class="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700">
+                        Démarrer
+                    </button>
+                </div>
+            </div>
+
+            <!-- Liste des joueurs -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div id="playersList" class="bg-gray-800 rounded-lg p-6">
+                    <h3 class="text-xl font-bold mb-4">Joueurs</h3>
+                    <div id="playersContainer"></div>
+                </div>
+                
+                <!-- Section de vote -->
+                <div id="voteSection" class="bg-gray-800 rounded-lg p-6 hidden">
+                    <h3 class="text-xl font-bold mb-4">Votes</h3>
+                    <div id="voteResults"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const socket = io();
+        let gameData = {
+            code: null,
+            players: [],
+            currentPlayer: null,
+            timer: null
+        };
+
+        // Création de partie
+        document.getElementById('createGame').addEventListener('click', async () => {
+            try {
+                const response = await fetch('/game/create', {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                gameData.code = data.gameCode;
+                
+                // Afficher l'écran de jeu
+                showGameScreen();
+                
+                // Rejoindre la room socket
+                socket.emit('joinGame', gameData.code, 'Central Display');
+                
+            } catch (error) {
+                console.error('Erreur création partie:', error);
+                alert('Erreur lors de la création de la partie');
+            }
+        });
+
+        // Rejoindre une partie existante
+        document.getElementById('joinGame').addEventListener('click', async () => {
+            const code = document.getElementById('joinGameCode').value.trim().toUpperCase();
+            if (!code) return;
+            
+            try {
+                const response = await fetch(`/game/${code}`);
+                if (!response.ok) throw new Error('Partie non trouvée');
+                
+                const game = await response.json();
+                gameData.code = code;
+                gameData.players = game.players;
+                
+                showGameScreen();
+                socket.emit('joinGame', code, 'Central Display');
+                
+            } catch (error) {
+                console.error('Erreur connexion:', error);
+                alert('Partie non trouvée');
+            }
+        });
+
+        // Afficher l'écran de jeu
+        function showGameScreen() {
+            document.getElementById('loginScreen').classList.add('hidden');
+            document.getElementById('gameScreen').classList.remove('hidden');
+            document.getElementById('gameCode').textContent = `Code: ${gameData.code}`;
+        }
+
+        // Mise à jour de la liste des joueurs
+        function updatePlayersList() {
+            const container = document.getElementById('playersContainer');
+            container.innerHTML = gameData.players
+                .map(player => `
+                    <div class="flex justify-between items-center py-2 ${player.isConnected ? '' : 'opacity-50'}">
+                        <span class="font-medium">
+                            ${player.name}
+                            ${player._id === gameData.currentPlayer ? ' (En cours)' : ''}
+                        </span>
+                        <span class="bg-purple-600 px-3 py-1 rounded-full">${player.score} pts</span>
+                    </div>
+                `)
+                .join('');
+        }
+
+        // Gestion du timer
+        document.getElementById('startTimer').addEventListener('click', () => {
+            socket.emit('startTimer', gameData.code);
+            document.getElementById('startTimer').disabled = true;
+        });
+
+        // Socket events
+        socket.on('playerJoined', (player) => {
+            gameData.players.push(player);
+            updatePlayersList();
+        });
+
+        socket.on('turnStarted', (data) => {
+            gameData.currentPlayer = data.currentPlayer;
+            const missionDiv = document.getElementById('currentMission');
+            missionDiv.classList.remove('hidden');
+            
+            document.getElementById('missionText').textContent = data.mission.task;
+            document.getElementById('suggestionText').textContent = data.mission.suggestion;
+            document.getElementById('startTimer').disabled = false;
+            
+            updatePlayersList();
+        });
+
+        socket.on('timerUpdate', (timeLeft) => {
+            const minutes = Math.floor(timeLeft / 60);
+            const seconds = timeLeft % 60;
+            document.getElementById('timerDisplay').textContent = 
+                `${minutes}:${seconds.toString().padStart(2, '0')}`;
+        });
+
+        socket.on('scoreUpdate', (data) => {
+            gameData.players = data.players;
+            updatePlayersList();
+        });
+
+        socket.on('playerDisconnected', (playerId) => {
+            const player = gameData.players.find(p => p._id === playerId);
+            if (player) {
+                player.isConnected = false;
+                updatePlayersList();
+            }
+        });
+
+        socket.on('error', (message) => {
+            alert(message);
+        });
+    </script>
+</body>
+</html>
