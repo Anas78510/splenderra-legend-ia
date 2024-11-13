@@ -1,15 +1,28 @@
-/* Styles de base et animations */
+/* Variables et thème */
 :root {
     --primary: #9333ea;    /* Purple */
     --secondary: #4f46e5;  /* Indigo */
     --accent: #f472b6;     /* Pink */
+    --success: #22c55e;    /* Green */
+    --warning: #eab308;    /* Yellow */
+    --error: #ef4444;      /* Red */
+    --background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%);
+}
+
+/* Styles de base */
+body {
+    background: var(--background);
+    background-size: 400% 400%;
+    animation: gradientShift 15s ease infinite;
+    font-family: 'Inter', system-ui, sans-serif;
+    transition: background-color 0.3s ease;
 }
 
 /* Animations personnalisées */
-@keyframes pulse-subtle {
-    0% { transform: scale(1); }
-    50% { transform: scale(1.02); }
-    100% { transform: scale(1); }
+@keyframes gradientShift {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
 }
 
 @keyframes float {
@@ -18,110 +31,165 @@
     100% { transform: translateY(0px); }
 }
 
-@keyframes gradient-shift {
-    0% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
-    100% { background-position: 0% 50%; }
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
 }
 
-/* Styles généraux */
-body {
-    background-size: 200% 200%;
-    animation: gradient-shift 15s ease infinite;
-    font-family: 'Inter', sans-serif;
+@keyframes shine {
+    0% { background-position: -100px; }
+    100% { background-position: 200px; }
 }
 
-/* Éléments interactifs */
-button, input, select {
+/* Cards et conteneurs */
+.bg-glass {
+    background: rgba(17, 24, 39, 0.7);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
     transition: all 0.3s ease;
 }
 
-button:hover {
+.bg-glass:hover {
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(147, 51, 234, 0.3);
+    box-shadow: 0 12px 40px 0 rgba(31, 38, 135, 0.45);
+}
+
+/* Inputs et boutons */
+input, select, button {
+    transition: all 0.3s ease;
 }
 
 input:focus, select:focus {
     transform: scale(1.02);
+    box-shadow: 0 0 0 3px rgba(147, 51, 234, 0.3);
+}
+
+button {
+    position: relative;
+    overflow: hidden;
+}
+
+button::after {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: linear-gradient(
+        45deg,
+        rgba(255, 255, 255, 0) 0%,
+        rgba(255, 255, 255, 0.1) 50%,
+        rgba(255, 255, 255, 0) 100%
+    );
+    transform: rotate(45deg);
+    transition: all 0.3s ease;
+}
+
+button:hover::after {
+    animation: shine 1.5s ease-in-out;
 }
 
 /* Timer */
 #timer {
-    animation: pulse-subtle 2s infinite;
+    font-variant-numeric: tabular-nums;
+    animation: pulse 2s infinite;
 }
 
-/* Cards et conteneurs */
-.bg-gray-800 {
-    box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
-    backdrop-filter: blur(8px);
-    transition: transform 0.3s ease;
+.timer-warning {
+    color: var(--warning);
+    animation: pulse 1s infinite;
 }
 
-.bg-gray-800:hover {
-    transform: translateY(-4px);
+.timer-danger {
+    color: var(--error);
+    animation: pulse 0.5s infinite;
 }
 
-/* Effets de survol */
-#playersList > div:hover {
-    background: rgba(255, 255, 255, 0.1);
-    transform: scale(1.02);
+/* Liste des joueurs */
+.player-card {
+    background: rgba(17, 24, 39, 0.5);
+    border-radius: 0.5rem;
+    padding: 1rem;
+    transition: all 0.3s ease;
+    border-left: 4px solid transparent;
 }
 
-/* Animations pour les missions */
-#currentMission {
-    animation: float 6s ease-in-out infinite;
+.player-card:hover {
+    background: rgba(17, 24, 39, 0.7);
+    transform: translateX(4px);
 }
 
-/* Badge de score */
+.player-active {
+    border-left-color: var(--accent);
+    background: rgba(147, 51, 234, 0.1);
+}
+
+.player-arbiter {
+    border-left-color: var(--warning);
+}
+
+/* Badges et scores */
 .score-badge {
     background: linear-gradient(45deg, var(--primary), var(--secondary));
     padding: 0.25rem 0.75rem;
     border-radius: 9999px;
     font-weight: 600;
-    animation: pulse-subtle 2s infinite;
+    animation: pulse 2s infinite;
 }
 
-/* Joker button spécial */
-#useJoker {
+.level-badge {
     background: linear-gradient(45deg, var(--accent), var(--primary));
-    background-size: 200% 200%;
-    animation: gradient-shift 3s ease infinite;
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    font-size: 0.875rem;
 }
 
-/* Loading spinner */
-.loading-spinner {
-    border: 4px solid rgba(255, 255, 255, 0.1);
-    border-left-color: var(--primary);
-    border-radius: 50%;
-    width: 40px;
-    height: 40px;
-    animation: spin 1s linear infinite;
+/* Mission en cours */
+#currentMission {
+    animation: float 6s ease-in-out infinite;
 }
 
-@keyframes spin {
-    100% { transform: rotate(360deg); }
+.mission-text {
+    font-size: 1.25rem;
+    line-height: 1.75;
+    margin-bottom: 1rem;
 }
 
-/* Style pour mobile */
-@media (max-width: 768px) {
-    .container {
-        padding-top: 1rem;
-    }
-    
-    #currentMission {
-        margin-bottom: 1rem;
-    }
-    
-    .grid {
-        gap: 1rem;
-    }
-    
-    button {
-        padding: 0.75rem 1rem;
-    }
+.suggestion-text {
+    color: rgba(255, 255, 255, 0.7);
+    font-style: italic;
 }
 
-/* Notifications stylées */
+/* Section vote */
+.vote-button {
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s ease;
+}
+
+.vote-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);
+}
+
+/* Joker */
+#jokerSection {
+    position: relative;
+}
+
+#jokerSection::before {
+    content: '🃏';
+    position: absolute;
+    top: -10px;
+    right: -10px;
+    font-size: 2rem;
+    transform: rotate(15deg);
+}
+
+/* Notifications */
 .notification {
     position: fixed;
     bottom: 20px;
@@ -140,27 +208,47 @@ input:focus, select:focus {
     to { transform: translateX(0); }
 }
 
-/* État actif du joueur */
-.player-active {
-    border-left: 4px solid var(--accent);
-    padding-left: 0.5rem;
+/* Responsive */
+@media (max-width: 768px) {
+    .container {
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+
+    .player-card {
+        margin-bottom: 0.5rem;
+    }
+
+    #timer {
+        font-size: 1.5rem;
+    }
+
+    .grid {
+        gap: 1rem;
+    }
 }
 
-/* Timer circulaire */
-.timer-circle {
-    position: relative;
-    width: 60px;
-    height: 60px;
+/* États spéciaux */
+.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
 }
 
-.timer-circle-bg {
-    fill: none;
-    stroke: rgba(255, 255, 255, 0.2);
+.highlight {
+    animation: pulse 2s infinite;
 }
 
-.timer-circle-progress {
-    fill: none;
-    stroke: var(--primary);
-    stroke-linecap: round;
-    transition: stroke-dashoffset 1s linear;
+/* Loading spinner */
+.loading {
+    width: 40px;
+    height: 40px;
+    border: 4px solid rgba(255, 255, 255, 0.1);
+    border-left-color: var(--primary);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    100% { transform: rotate(360deg); }
 }

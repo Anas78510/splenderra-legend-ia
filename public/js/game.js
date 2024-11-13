@@ -1,128 +1,78 @@
-// Initialisation Socket.IO et variables globales
-const socket = io();
-let gameState = {
-    currentPlayer: null,
-    players: [],
-    gameCode: null,
-    hasJoker: true,
-    credibilityPoints: 1,
-    isPlaying: false,
-    timer: null
+// État global du jeu
+const gameState = {
+    // Informations utilisateur
+    player: {
+        id: null,
+        name: '',
+        type: null, // 'host' ou 'player'
+        credibilityPoints: 1,
+        hasJoker: true,
+        isArbiter: false
+    },
+    
+    // État de la partie
+    game: {
+        code: null,
+        theme: null,
+        status: 'waiting',
+        currentPlayer: null,
+        players: [],
+        round: 0,
+        settings: {
+            voiceEnabled: false,
+            soundEnabled: false
+        }
+    },
+
+    // Timers et missions
+    timer: null,
+    currentMission: null
 };
 
-// Gestion des événements au chargement de la page
-document.addEventListener('DOMContentLoaded', () => {
-    console.log('🎮 Initialisation du jeu...');
-    initializeGame();
-});
+// Initialisation Socket.IO
+const socket = io();
 
+// Initialisation du jeu
 function initializeGame() {
-    // Boutons principaux
-    const createGameBtn = document.getElementById('createGame');
-    const joinGameBtn = document.getElementById('joinGame');
-    const voteButton = document.getElementById('voteButton');
-    const useJokerBtn = document.getElementById('useJoker');
-
-    console.log('🔄 Configuration des boutons...');
-    
-    // Événement création de partie
-    if (createGameBtn) {
-        createGameBtn.addEventListener('click', async () => {
-            console.log('👆 Clic sur Créer une partie');
-            createGameBtn.disabled = true; // Éviter double-clic
-            try {
-                console.log('🎲 Envoi requête création...');
-                const response = await fetch('/game/create', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    }
-                });
-                console.log('📥 Réponse reçue:', response);
-                
-                const data = await response.json();
-                console.log('📦 Données reçues:', data);
-                
-                if (data.success) {
-                    gameState.gameCode = data.gameCode;
-                    console.log('✅ Partie créée:', gameState.gameCode);
-                    UI.showNotification(`Partie créée ! Code : ${data.gameCode}`, 'success');
-                    showGameScreen();
-                    updateGameCodeDisplay();
-                } else {
-                    console.error('❌ Erreur création:', data.error);
-                    UI.showNotification(data.error || 'Erreur lors de la création', 'error');
-                }
-            } catch (error) {
-                console.error('❌ Erreur création partie:', error);
-                UI.showNotification('Erreur serveur', 'error');
-            } finally {
-                createGameBtn.disabled = false;
-            }
-        });
-    }
-
-    // Événement rejoindre partie
-    if (joinGameBtn) {
-        joinGameBtn.addEventListener('click', () => {
-            console.log('👆 Clic sur Rejoindre partie');
-            const gameCode = document.getElementById('gameCodeInput').value.trim().toUpperCase();
-            const playerName = document.getElementById('playerNameInput').value.trim();
-            
-            if (!gameCode || !playerName) {
-                UI.showNotification('Remplis tous les champs', 'error');
-                return;
-            }
-            
-            console.log('🎮 Tentative connexion:', { gameCode, playerName });
-            gameState.gameCode = gameCode;
-            socket.emit('joinGame', gameCode, playerName);
-        });
-    }
-
-    // Événements de vote et Joker
-    if (voteButton) voteButton.addEventListener('click', vote);
-    if (useJokerBtn) useJokerBtn.addEventListener('click', useJoker);
-
-    // Événements Socket.IO
-    initializeSocketEvents();
+    console.log('🎮 Initialisation Splenderra : Legend IA');
+    setupSocketListeners();
+    setupEventListeners();
 }
 
-function initializeSocketEvents() {
-    console.log('🔌 Configuration Socket.IO...');
-
+// Configuration des écouteurs Socket.IO
+function setupSocketListeners() {
     socket.on('connect', () => {
         console.log('✅ Connecté au serveur');
         UI.showNotification('Connecté au serveur', 'success');
     });
 
-    socket.on('gameCreated', (data) => {
-        console.log('🎮 Partie créée:', data);
-        handleGameCreated(data);
+    // Gestion connexion joueur
+    socket.on('playerConnected', (data) => {
+        console.log('👤 Joueur connecté:', data);
+        handlePlayerConnection(data);
     });
 
-    socket.on('playerJoined', (player) => {
-        console.log('👋 Joueur rejoint:', player);
-        handlePlayerJoined(player);
-    });
-
+    // Mise à jour état partie
     socket.on('gameState', (state) => {
         console.log('🔄 Mise à jour état:', state);
-        handleGameState(state);
+        updateGameState(state);
     });
 
+    // Démarrage tour
     socket.on('turnStarted', (data) => {
-        console.log('🎯 Tour commencé:', data);
-        handleTurnStarted(data);
+        console.log('🎯 Tour démarré:', data);
+        handleTurnStart(data);
     });
 
+    // Timer
     socket.on('timerUpdate', (timeLeft) => {
-        updateTimer(timeLeft);
+        UI.updateTimer(timeLeft);
     });
 
-    socket.on('turnEnded', (playerId) => {
-        console.log('🏁 Tour terminé:', playerId);
-        handleTurnEnded(playerId);
+    // Votes et scores
+    socket.on('voteRegistered', (data) => {
+        console.log('🗳️ Vote enregistré:', data);
+        handleVoteRegistration(data);
     });
 
     socket.on('scoreUpdate', (data) => {
@@ -130,227 +80,222 @@ function initializeSocketEvents() {
         updateScores(data);
     });
 
+    // Joker
     socket.on('jokerUsed', (data) => {
         console.log('🃏 Joker utilisé:', data);
         handleJokerUsed(data);
     });
 
+    // Arbitre
+    socket.on('arbiterAssigned', (data) => {
+        console.log('👑 Nouvel arbitre:', data);
+        handleArbiterAssignment(data);
+    });
+
+    // Erreurs
     socket.on('error', (message) => {
-        console.error('❌ Erreur socket:', message);
+        console.error('❌ Erreur:', message);
         UI.showNotification(message, 'error');
     });
 }
 
-// Fonctions de gestion du jeu
-function showGameScreen() {
-    console.log('📱 Affichage écran de jeu');
-    document.getElementById('loginScreen')?.classList.add('hidden');
-    document.getElementById('gameScreen')?.classList.remove('hidden');
+// Configuration des écouteurs d'événements
+function setupEventListeners() {
+    // Connexion hôte
+    document.getElementById('hostLogin')?.addEventListener('click', () => {
+        const email = document.getElementById('hostEmail').value;
+        const key = document.getElementById('activationKey').value;
+        loginAsHost(email, key);
+    });
+
+    // Connexion joueur
+    document.getElementById('playerJoin')?.addEventListener('click', () => {
+        const code = document.getElementById('inviteCode').value;
+        const name = document.getElementById('playerName').value;
+        joinGame(code, name);
+    });
+
+    // Création partie (hôte)
+    document.getElementById('createGame')?.addEventListener('click', createGame);
+
+    // Vote
+    document.getElementById('voteButton')?.addEventListener('click', vote);
+    document.getElementById('arbiterVoteYes')?.addEventListener('click', () => arbiterVote(true));
+    document.getElementById('arbiterVoteNo')?.addEventListener('click', () => arbiterVote(false));
+
+    // Joker
+    document.getElementById('useJoker')?.addEventListener('click', useJoker);
 }
 
-function updateGameCodeDisplay() {
-    const gameCodeElement = document.getElementById('gameCode');
-    if (gameCodeElement) {
-        gameCodeElement.textContent = `Code: ${gameState.gameCode}`;
+// Connexion en tant qu'hôte
+async function loginAsHost(email, key) {
+    console.log('🔑 Tentative connexion hôte...');
+    try {
+        const response = await fetch('/host/verify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, key })
+        });
+
+        const data = await response.json();
+        if (data.success) {
+            gameState.player.type = 'host';
+            gameState.player.id = data.hostId;
+            UI.showHostConfig();
+            UI.showNotification('Connecté en tant qu\'hôte', 'success');
+        } else {
+            UI.showNotification('Clé d\'activation invalide', 'error');
+        }
+    } catch (error) {
+        console.error('❌ Erreur connexion hôte:', error);
+        UI.showNotification('Erreur de connexion', 'error');
     }
 }
 
-function handleGameCreated(data) {
-    console.log('🎮 Traitement création partie:', data);
-    gameState.gameCode = data.gameCode;
-    showGameScreen();
-    updateGameCodeDisplay();
-}
-
-function handlePlayerJoined(player) {
-    console.log('👥 Ajout joueur:', player);
-    gameState.players.push(player);
-    updatePlayersList();
-    UI.showNotification(`${player.name} a rejoint la partie !`, 'info');
-}
-
-function handleGameState(state) {
-    console.log('🔄 Mise à jour état du jeu:', state);
-    gameState.players = state.players;
-    gameState.currentPlayer = state.currentPlayer;
-    updatePlayersList();
-    updateGameStatus();
-}
-
-function handleTurnStarted(data) {
-    console.log('🎯 Début du tour:', data);
-    const { currentPlayer, mission, level } = data;
-    gameState.currentPlayer = currentPlayer;
-    
-    if (document.getElementById('missionText')) {
-        document.getElementById('missionText').textContent = mission.task;
-    }
-    if (document.getElementById('suggestionText')) {
-        document.getElementById('suggestionText').textContent = mission.suggestion;
-    }
-
-    updatePlayerStatus();
-    showMissionSection();
-
-    if (currentPlayer === socket.id) {
-        console.log('🎭 C\'est mon tour !');
-        enablePerformanceControls();
-    } else {
-        console.log('👀 Tour d\'un autre joueur');
-        enableVotingControls();
-    }
-}
-
-function updateTimer(timeLeft) {
-    const timerDisplay = document.getElementById('timer');
-    if (!timerDisplay) return;
-
-    const minutes = Math.floor(timeLeft / 60);
-    const seconds = timeLeft % 60;
-    timerDisplay.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-
-    if (timeLeft <= 10) {
-        timerDisplay.classList.add('text-red-500', 'animate__animated', 'animate__pulse');
-    }
-}
-
-function vote() {
-    console.log('🗳️ Tentative de vote');
-    if (gameState.credibilityPoints < 1) {
-        UI.showNotification('Tu n\'as plus de points de crédibilité', 'error');
+// Rejoindre une partie
+function joinGame(code, name) {
+    if (!code || !name) {
+        UI.showNotification('Code et pseudo requis', 'error');
         return;
     }
-    
-    socket.emit('vote', gameState.gameCode, socket.id, gameState.currentPlayer);
-    document.getElementById('voteButton').disabled = true;
+
+    console.log('🎮 Tentative de connexion:', { code, name });
+    gameState.player.name = name;
+    socket.emit('joinGame', { code, name });
 }
 
+// Création de partie (hôte)
+async function createGame() {
+    if (gameState.player.type !== 'host') return;
+
+    const theme = document.getElementById('gameTheme').value;
+    const settings = {
+        voiceEnabled: document.getElementById('voiceEnabled').checked,
+        soundEnabled: document.getElementById('soundEnabled').checked
+    };
+
+    console.log('🎲 Création partie:', { theme, settings });
+    
+    try {
+        const response = await fetch('/game/create', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ theme, settings })
+        });
+
+        const data = await response.json();
+        if (data.success) {
+            gameState.game.code = data.gameCode;
+            UI.showInviteCode(data.gameCode);
+            UI.showNotification('Partie créée avec succès', 'success');
+            socket.emit('hostGame', data.gameCode);
+        }
+    } catch (error) {
+        console.error('❌ Erreur création partie:', error);
+        UI.showNotification('Erreur lors de la création', 'error');
+    }
+}
+
+// Gestion des tours
+function handleTurnStart(data) {
+    gameState.currentMission = data.mission;
+    gameState.game.currentPlayer = data.playerId;
+    
+    UI.updateMission(data.mission);
+    UI.updatePlayerStatus(data.playerId);
+
+    // Activation des contrôles selon le rôle
+    if (data.playerId === gameState.player.id) {
+        UI.showPerformerControls();
+        if (gameState.player.hasJoker) UI.showJokerSection();
+    } else if (gameState.player.isArbiter) {
+        UI.showArbiterControls();
+    } else {
+        UI.showVoterControls();
+    }
+
+    // Synthèse vocale si activée
+    if (gameState.game.settings.voiceEnabled) {
+        speakMission(data.mission);
+    }
+}
+
+// Système de vote
+function vote() {
+    if (!gameState.game.currentPlayer || gameState.player.credibilityPoints < 1) return;
+    
+    console.log('🗳️ Vote pour:', gameState.game.currentPlayer);
+    socket.emit('vote', {
+        gameCode: gameState.game.code,
+        voterId: gameState.player.id,
+        targetId: gameState.game.currentPlayer
+    });
+}
+
+// Vote de l'arbitre
+function arbiterVote(isPositive) {
+    if (!gameState.player.isArbiter) return;
+    
+    console.log('👑 Vote arbitre:', isPositive);
+    socket.emit('arbiterVote', {
+        gameCode: gameState.game.code,
+        isPositive
+    });
+}
+
+// Utilisation du Joker
 function useJoker() {
-    console.log('🃏 Tentative utilisation Joker');
+    if (!gameState.player.hasJoker) return;
+    
     const targetId = document.getElementById('jokerTarget').value;
     if (!targetId) {
-        UI.showNotification('Choisis un joueur', 'error');
+        UI.showNotification('Sélectionne un joueur', 'error');
         return;
     }
-    
-    if (!gameState.hasJoker) {
-        UI.showNotification('Tu as déjà utilisé ton Joker', 'error');
-        return;
-    }
-    
-    socket.emit('useJoker', gameState.gameCode, socket.id, targetId);
-    gameState.hasJoker = false;
-    updateJokerStatus();
-}
 
-function updateScores(data) {
-    console.log('📊 Mise à jour scores:', data);
-    gameState.players = data.players;
-    updatePlayersList();
-    updatePlayerScore();
-}
-
-function updatePlayersList() {
-    const container = document.getElementById('playersList');
-    if (!container) return;
-
-    console.log('👥 Mise à jour liste joueurs');
-    container.innerHTML = '';
-    
-    gameState.players.forEach(player => {
-        const playerDiv = document.createElement('div');
-        playerDiv.className = `flex justify-between items-center p-3 rounded-lg transition-all ${
-            player._id === gameState.currentPlayer ? 'player-active bg-purple-900 bg-opacity-50' : ''
-        }`;
-        
-        playerDiv.innerHTML = `
-            <div class="flex items-center">
-                <span class="font-medium ${player.isConnected ? '' : 'text-gray-500'}">${player.name}</span>
-                ${player.hasJoker ? '<span class="ml-2 text-blue-400">🃏</span>' : ''}
-            </div>
-            <span class="score-badge">${player.score}</span>
-        `;
-        
-        container.appendChild(playerDiv);
+    console.log('🃏 Utilisation Joker sur:', targetId);
+    socket.emit('useJoker', {
+        gameCode: gameState.game.code,
+        targetId
     });
+}
+
+// Mise à jour de l'état du jeu
+function updateGameState(state) {
+    gameState.game = { ...gameState.game, ...state };
+    UI.updateGameDisplay(state);
+    updatePlayersList();
+}
+
+// Mise à jour de la liste des joueurs
+function updatePlayersList() {
+    const playersList = document.getElementById('playersList');
+    if (!playersList) return;
+
+    playersList.innerHTML = '';
+    gameState.game.players.forEach(player => {
+        const playerCard = UI.createPlayerCard(player);
+        playersList.appendChild(playerCard);
+    });
+
+    // Mise à jour liste Joker
+    if (gameState.player.hasJoker) {
+        updateJokerTargetList();
+    }
+}
+
+// Synthèse vocale pour les missions
+function speakMission(mission) {
+    if (!gameState.game.settings.voiceEnabled) return;
     
-    updateJokerTargetList();
-}
-
-function updateJokerTargetList() {
-    const select = document.getElementById('jokerTarget');
-    if (!select) return;
-
-    console.log('🃏 Mise à jour liste Joker');
-    select.innerHTML = '<option value="">Choisir un joueur</option>';
-    
-    gameState.players
-        .filter(p => p._id !== socket.id && p.isConnected)
-        .forEach(player => {
-            const option = document.createElement('option');
-            option.value = player._id;
-            option.textContent = player.name;
-            select.appendChild(option);
-        });
-}
-
-function updatePlayerStatus() {
-    const currentPlayerElement = document.getElementById('currentPlayer');
-    if (currentPlayerElement) {
-        const player = gameState.players.find(p => p._id === gameState.currentPlayer);
-        if (player) {
-            currentPlayerElement.textContent = `Au tour de : ${player.name}`;
-        }
-    }
-}
-
-function showMissionSection() {
-    const missionSection = document.getElementById('currentMission');
-    if (missionSection) {
-        missionSection.classList.remove('hidden');
-    }
-}
-
-function enablePerformanceControls() {
-    const voteSection = document.getElementById('voteSection');
-    if (voteSection) voteSection.classList.add('hidden');
-    
-    const jokerSection = document.getElementById('jokerSection');
-    if (jokerSection && gameState.hasJoker) jokerSection.classList.remove('hidden');
-}
-
-function enableVotingControls() {
-    const voteSection = document.getElementById('voteSection');
-    if (voteSection) voteSection.classList.remove('hidden');
-    
-    const jokerSection = document.getElementById('jokerSection');
-    if (jokerSection) jokerSection.classList.add('hidden');
-}
-
-function updateJokerStatus() {
-    const jokerButton = document.getElementById('useJoker');
-    if (jokerButton) {
-        jokerButton.disabled = !gameState.hasJoker;
-        jokerButton.classList.toggle('opacity-50', !gameState.hasJoker);
-    }
-}
-
-function updatePlayerScore() {
-    const scoreElement = document.getElementById('playerScore');
-    if (scoreElement) {
-        const player = gameState.players.find(p => p._id === socket.id);
-        if (player) {
-            scoreElement.textContent = `Score: ${player.score}`;
-        }
-    }
-}
-
-function updateGameStatus() {
-    const statusElement = document.getElementById('gameStatus');
-    if (statusElement) {
-        statusElement.textContent = `Partie ${gameState.gameCode} - ${gameState.players.length} joueurs`;
-    }
+    const speech = new SpeechSynthesisUtterance();
+    speech.text = mission.task;
+    speech.lang = 'fr-FR';
+    window.speechSynthesis.speak(speech);
 }
 
 // Export pour utilisation globale
 window.gameState = gameState;
+
+// Initialisation au chargement
+document.addEventListener('DOMContentLoaded', initializeGame);

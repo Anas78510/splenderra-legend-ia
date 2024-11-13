@@ -1,34 +1,24 @@
-// Gestion de l'interface utilisateur
+// Gestionnaire d'interface utilisateur
 const UI = {
-    // États de l'interface
+    // États et constantes
     states: {
-        isAnimating: false,
         currentScreen: 'login',
-        notifications: [],
+        isAnimating: false,
+        notifications: []
     },
 
     // Initialisation
     init() {
-        this.initializeAnimations();
-        this.setupEventListeners();
+        console.log('🎨 Initialisation interface Splenderra');
+        this.setupTheme();
+        this.bindAnimations();
     },
 
-    // Configuration des écouteurs d'événements
-    setupEventListeners() {
-        // Transitions entre écrans
-        document.getElementById('loginScreen').addEventListener('animationend', () => {
-            this.states.isAnimating = false;
-        });
-
-        // Gestion responsive
-        window.addEventListener('resize', () => {
-            this.handleResize();
-        });
-
-        // Easter egg : double-clic sur le logo
-        document.querySelector('header').addEventListener('dblclick', () => {
-            this.triggerEasterEgg();
-        });
+    // Configuration du thème
+    setupTheme() {
+        if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            document.body.classList.add('dark-theme');
+        }
     },
 
     // Transitions entre écrans
@@ -39,38 +29,151 @@ const UI = {
         const fromScreen = document.getElementById(`${from}Screen`);
         const toScreen = document.getElementById(`${to}Screen`);
 
+        if (!fromScreen || !toScreen) {
+            console.error('❌ Écran non trouvé:', { from, to });
+            return;
+        }
+
         // Animation de sortie
         fromScreen.classList.add('animate__animated', 'animate__fadeOut');
-        
         setTimeout(() => {
             fromScreen.classList.add('hidden');
             fromScreen.classList.remove('animate__animated', 'animate__fadeOut');
-            
+
             // Animation d'entrée
             toScreen.classList.remove('hidden');
             toScreen.classList.add('animate__animated', 'animate__fadeIn');
-            
+
             this.states.currentScreen = to;
             this.states.isAnimating = false;
         }, 500);
     },
 
-    // Notifications stylées
+    // Affichage host
+    showHostConfig() {
+        this.switchScreen('login', 'hostConfig');
+    },
+
+    // Affichage écran de jeu
+    showGameScreen() {
+        this.switchScreen(this.states.currentScreen, 'game');
+    },
+
+    // Mise à jour mission
+    updateMission(mission) {
+        const missionText = document.getElementById('missionText');
+        const suggestionText = document.getElementById('missionSuggestion');
+        const missionSection = document.getElementById('currentMission');
+
+        if (!missionSection) return;
+
+        missionSection.classList.add('animate__animated', 'animate__fadeInDown');
+        
+        if (missionText) missionText.textContent = mission.task;
+        if (suggestionText) suggestionText.textContent = mission.suggestion;
+
+        setTimeout(() => {
+            missionSection.classList.remove('animate__animated', 'animate__fadeInDown');
+        }, 1000);
+    },
+
+    // Mise à jour timer
+    updateTimer(timeLeft) {
+        const timerElement = document.getElementById('timer');
+        if (!timerElement) return;
+
+        const minutes = Math.floor(timeLeft / 60);
+        const seconds = timeLeft % 60;
+        timerElement.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+
+        // Animation selon le temps restant
+        if (timeLeft <= 30) {
+            timerElement.classList.add('timer-warning');
+        }
+        if (timeLeft <= 10) {
+            timerElement.classList.remove('timer-warning');
+            timerElement.classList.add('timer-danger');
+        }
+    },
+
+    // Création carte joueur
+    createPlayerCard(player) {
+        const div = document.createElement('div');
+        div.className = `player-card flex justify-between items-center ${
+            player.id === gameState.game.currentPlayer ? 'player-active' : ''
+        } ${player.isArbiter ? 'player-arbiter' : ''}`;
+
+        div.innerHTML = `
+            <div class="flex items-center space-x-3">
+                <span class="font-medium">${player.name}</span>
+                ${player.isArbiter ? '<span class="text-yellow-400">👑</span>' : ''}
+                ${player.hasJoker ? '<span class="text-blue-400">🃏</span>' : ''}
+            </div>
+            <div class="flex items-center space-x-3">
+                <span class="level-badge">Niveau ${player.level}</span>
+                <span class="score-badge">${player.score}</span>
+            </div>
+        `;
+
+        return div;
+    },
+
+    // Affichage contrôles performer
+    showPerformerControls() {
+        const voteSection = document.getElementById('voteSection');
+        const jokerSection = document.getElementById('jokerSection');
+        const arbiterSection = document.getElementById('arbiterSection');
+
+        if (voteSection) voteSection.classList.add('hidden');
+        if (arbiterSection) arbiterSection.classList.add('hidden');
+        if (jokerSection && gameState.player.hasJoker) {
+            jokerSection.classList.remove('hidden');
+        }
+    },
+
+    // Affichage contrôles votant
+    showVoterControls() {
+        const voteSection = document.getElementById('voteSection');
+        const jokerSection = document.getElementById('jokerSection');
+        const arbiterSection = document.getElementById('arbiterSection');
+
+        if (voteSection) voteSection.classList.remove('hidden');
+        if (jokerSection) jokerSection.classList.add('hidden');
+        if (arbiterSection) arbiterSection.classList.add('hidden');
+    },
+
+    // Affichage contrôles arbitre
+    showArbiterControls() {
+        const voteSection = document.getElementById('voteSection');
+        const jokerSection = document.getElementById('jokerSection');
+        const arbiterSection = document.getElementById('arbiterSection');
+
+        if (voteSection) voteSection.classList.add('hidden');
+        if (jokerSection) jokerSection.classList.add('hidden');
+        if (arbiterSection) arbiterSection.classList.remove('hidden');
+    },
+
+    // Notifications
     showNotification(message, type = 'info') {
         const notification = document.createElement('div');
-        notification.className = `notification animate__animated animate__slideInRight ${type}`;
+        notification.className = `notification ${type} animate__animated animate__slideInRight`;
         
-        const icon = this.getNotificationIcon(type);
+        const icons = {
+            success: '✅',
+            error: '❌',
+            info: 'ℹ️',
+            warning: '⚠️'
+        };
+
         notification.innerHTML = `
             <div class="flex items-center">
-                <span class="mr-2">${icon}</span>
+                <span class="mr-2">${icons[type]}</span>
                 <span>${message}</span>
             </div>
         `;
 
         document.body.appendChild(notification);
 
-        // Animation de sortie
         setTimeout(() => {
             notification.classList.remove('animate__slideInRight');
             notification.classList.add('animate__slideOutRight');
@@ -78,68 +181,71 @@ const UI = {
         }, 3000);
     },
 
-    // Icônes pour les notifications
-    getNotificationIcon(type) {
-        const icons = {
-            success: '✅',
-            error: '❌',
-            info: 'ℹ️',
-            warning: '⚠️'
-        };
-        return icons[type] || icons.info;
-    },
+    // Mise à jour affichage jeu
+    updateGameDisplay(state) {
+        // Mise à jour statut joueur
+        const userStatus = document.getElementById('userStatus');
+        const userName = document.getElementById('userName');
+        const userScore = document.getElementById('userScore');
 
-    // Animation du timer
-    updateTimer(timeLeft, totalTime = 120) {
-        const timerElement = document.getElementById('timer');
-        if (!timerElement) return;
-
-        const minutes = Math.floor(timeLeft / 60);
-        const seconds = timeLeft % 60;
-        const percentage = (timeLeft / totalTime) * 100;
-
-        // Mise à jour du texte
-        timerElement.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-
-        // Animation du cercle
-        const circle = document.querySelector('.timer-circle-progress');
-        if (circle) {
-            const circumference = 2 * Math.PI * 27; // rayon de 27
-            circle.style.strokeDashoffset = circumference - (percentage / 100) * circumference;
+        if (userStatus) userStatus.classList.remove('hidden');
+        if (userName) userName.textContent = gameState.player.name;
+        if (userScore) {
+            const player = state.players.find(p => p.id === gameState.player.id);
+            if (player) userScore.textContent = `Score: ${player.score}`;
         }
 
-        // Animations selon le temps restant
-        if (timeLeft <= 10) {
-            timerElement.classList.add('text-red-500', 'animate__animated', 'animate__pulse');
+        // Mise à jour liste joueurs
+        this.updatePlayersList(state.players);
+
+        // Mise à jour contrôles selon rôle
+        if (state.currentPlayer === gameState.player.id) {
+            this.showPerformerControls();
+        } else if (gameState.player.isArbiter) {
+            this.showArbiterControls();
         } else {
-            timerElement.classList.remove('text-red-500', 'animate__animated', 'animate__pulse');
+            this.showVoterControls();
         }
     },
 
-    // Animation des scores
-    updateScore(element, newScore, oldScore) {
-        if (!element) return;
+    // Mise à jour liste joueurs
+    updatePlayersList(players) {
+        const playersList = document.getElementById('playersList');
+        if (!playersList) return;
 
-        const scoreBadge = element.querySelector('.score-badge');
-        if (!scoreBadge) return;
+        playersList.innerHTML = '';
+        players.forEach(player => {
+            playersList.appendChild(this.createPlayerCard(player));
+        });
 
-        if (newScore > oldScore) {
-            scoreBadge.classList.add('animate__animated', 'animate__bounceIn');
-            setTimeout(() => {
-                scoreBadge.classList.remove('animate__animated', 'animate__bounceIn');
-            }, 1000);
-        }
+        this.updateJokerTargetList(players);
+    },
+
+    // Mise à jour liste cibles Joker
+    updateJokerTargetList(players) {
+        const select = document.getElementById('jokerTarget');
+        if (!select) return;
+
+        select.innerHTML = '<option value="">Choisir un joueur</option>';
         
-        scoreBadge.textContent = newScore;
+        players
+            .filter(p => p.id !== gameState.player.id && p.isConnected)
+            .forEach(player => {
+                const option = document.createElement('option');
+                option.value = player.id;
+                option.textContent = player.name;
+                select.appendChild(option);
+            });
     },
 
-    // Animation du Joker
-    animateJokerUse(targetPlayer) {
+    // Animation utilisation Joker
+    animateJokerUse(targetName) {
         const jokerButton = document.getElementById('useJoker');
+        if (!jokerButton) return;
+
         jokerButton.classList.add('animate__animated', 'animate__rubberBand');
-        
-        this.showNotification(`Joker utilisé sur ${targetPlayer} !`, 'success');
-        
+        this.showNotification(`Joker utilisé sur ${targetName} !`, 'success');
+
         setTimeout(() => {
             jokerButton.classList.remove('animate__animated', 'animate__rubberBand');
             jokerButton.disabled = true;
@@ -147,78 +253,19 @@ const UI = {
         }, 1000);
     },
 
-    // Animation de la mission
-    showMission(mission) {
-        const missionElement = document.getElementById('currentMission');
-        missionElement.classList.add('animate__animated', 'animate__fadeInDown');
-        
-        document.getElementById('missionText').textContent = mission.task;
-        document.getElementById('suggestionText').textContent = mission.suggestion;
-        
-        setTimeout(() => {
-            missionElement.classList.remove('animate__animated', 'animate__fadeInDown');
-        }, 1000);
-    },
+    // Sons d'ambiance et effets
+    playSoundEffect(type) {
+        if (!gameState.game.settings.soundEnabled) return;
 
-    // Gestion responsive
-    handleResize() {
-        const isMobile = window.innerWidth < 768;
-        document.body.classList.toggle('is-mobile', isMobile);
-        
-        // Ajuster l'interface selon la taille
-        if (isMobile) {
-            this.adjustForMobile();
-        } else {
-            this.adjustForDesktop();
-        }
-    },
+        const sounds = {
+            success: new Audio('/sounds/success.mp3'),
+            vote: new Audio('/sounds/vote.mp3'),
+            timer: new Audio('/sounds/timer.mp3'),
+            joker: new Audio('/sounds/joker.mp3')
+        };
 
-    // Ajustements mobile
-    adjustForMobile() {
-        const gameScreen = document.getElementById('gameScreen');
-        if (gameScreen) {
-            gameScreen.classList.add('mobile-layout');
-        }
-    },
-
-    // Ajustements desktop
-    adjustForDesktop() {
-        const gameScreen = document.getElementById('gameScreen');
-        if (gameScreen) {
-            gameScreen.classList.remove('mobile-layout');
-        }
-    },
-
-    // Easter egg
-    triggerEasterEgg() {
-        document.body.classList.add('rainbow-mode');
-        setTimeout(() => {
-            document.body.classList.remove('rainbow-mode');
-        }, 3000);
-    },
-
-    // Animation de victoire
-    celebrateWin(playerName) {
-        // Confetti
-        const colors = ['#9333ea', '#4f46e5', '#f472b6'];
-        
-        for (let i = 0; i < 100; i++) {
-            this.createConfetti(colors[Math.floor(Math.random() * colors.length)]);
-        }
-
-        this.showNotification(`🎉 ${playerName} remporte la partie !`, 'success');
-    },
-
-    // Création de confetti
-    createConfetti(color) {
-        const confetti = document.createElement('div');
-        confetti.className = 'confetti';
-        confetti.style.backgroundColor = color;
-        confetti.style.left = Math.random() * 100 + 'vw';
-        
-        document.body.appendChild(confetti);
-        
-        setTimeout(() => confetti.remove(), 3000);
+        const sound = sounds[type];
+        if (sound) sound.play();
     }
 };
 
@@ -227,5 +274,5 @@ document.addEventListener('DOMContentLoaded', () => {
     UI.init();
 });
 
-// Export pour utilisation dans d'autres fichiers
+// Export pour utilisation globale
 window.UI = UI;
