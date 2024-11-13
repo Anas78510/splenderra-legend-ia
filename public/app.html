@@ -10,157 +10,90 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.1/socket.io.js"></script>
 </head>
 <body class="bg-gradient-to-br from-purple-900 to-indigo-900 min-h-screen text-white">
-    <!-- Header avec logo et statut -->
+    <!-- Header -->
     <header class="fixed top-0 w-full bg-black bg-opacity-50 backdrop-blur-sm z-50">
-        <div class="container mx-auto px-4 py-3 flex justify-between items-center">
+        <div class="container mx-auto px-4 py-3">
             <div class="text-2xl font-bold">
                 <span class="text-purple-400">Splenderra</span>
                 <span class="text-indigo-400">: Legend IA</span>
-            </div>
-            <div id="userStatus" class="hidden">
-                <span id="userName" class="font-medium mr-2"></span>
-                <span id="userScore" class="bg-purple-600 px-3 py-1 rounded-full"></span>
             </div>
         </div>
     </header>
 
     <!-- Écran de connexion -->
     <div id="loginScreen" class="container mx-auto px-4 pt-24">
-        <div class="max-w-md mx-auto bg-gray-800 bg-opacity-50 backdrop-blur-sm rounded-lg p-6 animate__animated animate__fadeIn">
-            <h2 class="text-2xl font-bold mb-6 text-center">Accès Splenderra</h2>
-            
-            <!-- Mode Hôte -->
-            <div class="mb-6">
-                <h3 class="text-lg font-medium mb-4">Accès Hôte</h3>
-                <input type="email" id="hostEmail" placeholder="Email" 
-                    class="w-full bg-gray-700 text-white px-4 py-3 rounded-lg mb-3 focus:ring-2 focus:ring-purple-500">
-                <input type="text" id="activationKey" placeholder="Clé d'activation" 
-                    class="w-full bg-gray-700 text-white px-4 py-3 rounded-lg mb-3 focus:ring-2 focus:ring-purple-500">
-                <button id="hostLogin" class="w-full bg-purple-600 text-white py-3 rounded-lg hover:bg-purple-700 transition-colors">
-                    Connexion Hôte
-                </button>
-            </div>
-
-            <div class="text-center text-gray-400 my-4">ou</div>
-
-            <!-- Mode Joueur -->
-            <div>
-                <h3 class="text-lg font-medium mb-4">Rejoindre une partie</h3>
-                <input type="text" id="inviteCode" placeholder="Code d'invitation" 
-                    class="w-full bg-gray-700 text-white px-4 py-3 rounded-lg mb-3 focus:ring-2 focus:ring-purple-500">
-                <input type="text" id="playerName" placeholder="Ton pseudo" 
-                    class="w-full bg-gray-700 text-white px-4 py-3 rounded-lg mb-3 focus:ring-2 focus:ring-purple-500">
-                <button id="playerJoin" class="w-full bg-indigo-600 text-white py-3 rounded-lg hover:bg-indigo-700 transition-colors">
-                    Rejoindre
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Configuration de partie (Hôte uniquement) -->
-    <div id="hostConfigScreen" class="hidden container mx-auto px-4 pt-24">
-        <div class="max-w-4xl mx-auto">
-            <div class="bg-gray-800 bg-opacity-50 backdrop-blur-sm rounded-lg p-6 mb-4">
-                <h2 class="text-2xl font-bold mb-6">Configuration de la partie</h2>
+        <div class="max-w-md mx-auto">
+            <div class="bg-gray-800 bg-opacity-50 backdrop-blur-sm rounded-lg p-6">
+                <h2 class="text-2xl font-bold mb-6 text-center">Rejoindre une partie</h2>
                 
-                <!-- Thème -->
-                <div class="mb-6">
-                    <h3 class="text-lg font-medium mb-4">Thème de la partie</h3>
-                    <select id="gameTheme" class="w-full bg-gray-700 text-white px-4 py-3 rounded-lg focus:ring-2 focus:ring-purple-500">
-                        <option value="humour">Humour et légèreté</option>
-                        <option value="serious">Défis sérieux</option>
-                        <option value="coaching">Coaching collectif</option>
-                        <option value="creative">Improvisation créative</option>
-                    </select>
-                </div>
+                <div class="space-y-4">
+                    <input type="text" id="joinCode" placeholder="Code de partie" 
+                        class="w-full bg-gray-700 text-white px-4 py-3 rounded-lg focus:ring-2 focus:ring-purple-500">
+                    
+                    <input type="text" id="joinName" placeholder="Ton pseudo" 
+                        class="w-full bg-gray-700 text-white px-4 py-3 rounded-lg focus:ring-2 focus:ring-purple-500">
+                    
+                    <button id="joinButton" class="w-full bg-purple-600 text-white py-3 rounded-lg hover:bg-purple-700">
+                        Rejoindre
+                    </button>
 
-                <!-- Options -->
-                <div class="mb-6">
-                    <h3 class="text-lg font-medium mb-4">Options</h3>
-                    <div class="flex items-center mb-3">
-                        <input type="checkbox" id="voiceEnabled" class="mr-3">
-                        <label for="voiceEnabled">Activer la synthèse vocale</label>
-                    </div>
-                    <div class="flex items-center">
-                        <input type="checkbox" id="soundEnabled" class="mr-3">
-                        <label for="soundEnabled">Activer les sons d'ambiance</label>
-                    </div>
-                </div>
-
-                <!-- Création partie -->
-                <button id="createGame" class="w-full bg-purple-600 text-white py-3 rounded-lg hover:bg-purple-700 transition-colors">
-                    Créer la partie
-                </button>
-            </div>
-
-            <!-- Code d'invitation -->
-            <div id="inviteSection" class="hidden bg-gray-800 bg-opacity-50 backdrop-blur-sm rounded-lg p-6">
-                <h3 class="text-lg font-medium mb-4">Code d'invitation</h3>
-                <div class="flex items-center space-x-4">
-                    <span id="inviteCodeDisplay" class="flex-grow bg-gray-700 px-4 py-3 rounded-lg font-mono"></span>
-                    <button id="copyInvite" class="bg-indigo-600 px-6 py-3 rounded-lg hover:bg-indigo-700 transition-colors">
-                        Copier
+                    <button id="createButton" class="w-full bg-indigo-600 text-white py-3 rounded-lg hover:bg-indigo-700">
+                        Nouvelle partie
                     </button>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Interface de jeu principale -->
+    <!-- Écran de jeu -->
     <div id="gameScreen" class="hidden container mx-auto px-4 pt-24">
         <div class="max-w-4xl mx-auto">
-            <!-- Mission en cours -->
-            <div id="currentMission" class="bg-gray-800 bg-opacity-50 backdrop-blur-sm rounded-lg p-6 mb-4">
-                <div class="flex justify-between items-center mb-6">
-                    <h2 class="text-2xl font-bold">Mission en cours</h2>
-                    <div id="timer" class="text-3xl font-bold">2:00</div>
+            <!-- Mission -->
+            <div class="bg-gray-800 bg-opacity-50 backdrop-blur-sm rounded-lg p-6 mb-4">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-2xl font-bold">Mission</h2>
+                    <div id="gameTimer" class="text-3xl font-bold">2:00</div>
                 </div>
-                <div id="missionContent" class="space-y-4">
-                    <p id="missionText" class="text-lg"></p>
-                    <p id="missionSuggestion" class="text-gray-400"></p>
-                </div>
+                <div id="missionText" class="text-lg mb-2"></div>
+                <div id="suggestionText" class="text-gray-400"></div>
             </div>
 
-            <!-- Section joueurs et votes -->
+            <!-- Joueurs et contrôles -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <!-- Liste des joueurs -->
                 <div class="bg-gray-800 bg-opacity-50 backdrop-blur-sm rounded-lg p-6">
-                    <h2 class="text-xl font-bold mb-4">Joueurs</h2>
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-xl font-bold">Joueurs</h2>
+                        <div id="yourScore" class="bg-purple-600 px-3 py-1 rounded-full"></div>
+                    </div>
                     <div id="playersList" class="space-y-3"></div>
                 </div>
 
-                <!-- Section vote -->
+                <!-- Contrôles -->
                 <div class="space-y-4">
-                    <!-- Vote normal -->
+                    <!-- Vote -->
                     <div id="voteSection" class="hidden bg-gray-800 bg-opacity-50 backdrop-blur-sm rounded-lg p-6">
                         <h2 class="text-xl font-bold mb-4">Vote</h2>
-                        <button id="voteButton" class="w-full bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 transition-colors">
+                        <button id="voteButton" class="w-full bg-green-600 text-white py-3 rounded-lg hover:bg-green-700">
                             Voter (1 point)
-                        </button>
-                        <p class="text-center text-sm text-gray-400 mt-2">
-                            Points disponibles : <span id="credibilityPoints">1</span>
-                        </p>
-                    </div>
-
-                    <!-- Vote Arbitre -->
-                    <div id="arbiterSection" class="hidden bg-gray-800 bg-opacity-50 backdrop-blur-sm rounded-lg p-6">
-                        <h2 class="text-xl font-bold mb-4">Vote Arbitre</h2>
-                        <button id="arbiterVoteYes" class="w-full bg-green-600 text-white py-3 rounded-lg mb-2 hover:bg-green-700 transition-colors">
-                            Valider (2 points)
-                        </button>
-                        <button id="arbiterVoteNo" class="w-full bg-red-600 text-white py-3 rounded-lg hover:bg-red-700 transition-colors">
-                            Invalider
                         </button>
                     </div>
 
                     <!-- Joker -->
                     <div id="jokerSection" class="hidden bg-gray-800 bg-opacity-50 backdrop-blur-sm rounded-lg p-6">
                         <h2 class="text-xl font-bold mb-4">Joker</h2>
-                        <select id="jokerTarget" class="w-full bg-gray-700 text-white px-4 py-3 rounded-lg mb-3 focus:ring-2 focus:ring-blue-500">
+                        <select id="jokerTarget" class="w-full bg-gray-700 text-white px-4 py-3 rounded-lg mb-3">
                             <option value="">Choisir un joueur</option>
                         </select>
-                        <button id="useJoker" class="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition-colors">
-                            Utiliser le Joker
+                        <button id="jokerButton" class="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700">
+                            Utiliser Joker
+                        </button>
+                    </div>
+
+                    <!-- Régénération -->
+                    <div id="regenSection" class="hidden bg-gray-800 bg-opacity-50 backdrop-blur-sm rounded-lg p-6">
+                        <button id="regenButton" class="w-full bg-yellow-600 text-white py-3 rounded-lg hover:bg-yellow-700">
+                            Régénérer (<span id="regenCount">3</span>)
                         </button>
                     </div>
                 </div>
@@ -169,8 +102,7 @@
     </div>
 
     <!-- Scripts -->
-    <script src="js/ui.js"></script>
     <script src="js/game.js"></script>
-    <script src="js/host.js"></script>
+    <script src="js/ui.js"></script>
 </body>
 </html>

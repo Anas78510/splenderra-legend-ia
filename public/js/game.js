@@ -1,254 +1,188 @@
-// Gestion du jeu Splenderra
+// Initialisation socket.io
+const socket = io();
+
+// État du jeu
 const gameState = {
-    // État joueur
     player: {
-        id: null,
         name: '',
         isAdmin: false,
-        credibilityPoints: 1,
+        points: 1,
         hasJoker: true,
         score: 0
     },
-
-    // État partie
     game: {
         code: null,
-        theme: 'humour',
-        players: [],
-        currentPlayer: null,
         status: 'waiting',
-        currentMission: null,
-        regenerationsLeft: 3
+        currentPlayer: null,
+        regenCount: 3
     }
 };
 
-// Initialisation Socket.IO
-const socket = io();
-
-// Initialisation du jeu
+// Initialisation au chargement
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('🎮 Initialisation Splenderra');
-    setupEventListeners();
-    setupSocketListeners();
-    checkAdminAccess();
+    initializeGame();
 });
 
-// Configuration des écouteurs d'événements
-function setupEventListeners() {
-    // Connexion et création de partie
-    document.getElementById('joinGame').addEventListener('click', handleJoinGame);
-    document.getElementById('createGame').addEventListener('click', handleCreateGame);
+// Initialisation du jeu
+function initializeGame() {
+    // Boutons écran login
+    document.getElementById('joinButton').addEventListener('click', handleJoin);
+    document.getElementById('createButton').addEventListener('click', handleCreate);
 
     // Boutons de jeu
     document.getElementById('voteButton')?.addEventListener('click', handleVote);
-    document.getElementById('useJoker')?.addEventListener('click', handleJokerUse);
-    document.getElementById('regenerateMission')?.addEventListener('click', handleRegenerateMission);
+    document.getElementById('jokerButton')?.addEventListener('click', handleJoker);
+    document.getElementById('regenButton')?.addEventListener('click', handleRegen);
+
+    // Socket listeners
+    setupSocketListeners();
 }
 
-// Configuration Socket.IO
+// Gestion des événements socket
 function setupSocketListeners() {
     socket.on('connect', () => {
-        console.log('✅ Connecté au serveur');
-        UI.showNotification('Connecté au serveur', 'success');
+        console.log('Connecté au serveur');
     });
 
-    socket.on('gameState', handleGameState);
-    socket.on('playerJoined', handlePlayerJoined);
-    socket.on('turnStarted', handleTurnStart);
-    socket.on('timerUpdate', UI.updateTimer);
-    socket.on('turnEnded', handleTurnEnd);
-    socket.on('scoreUpdate', handleScoreUpdate);
-    socket.on('jokerUsed', handleJokerUsed);
-    socket.on('missionRegenerated', handleMissionRegenerated);
-    socket.on('error', handleError);
+    socket.on('gameCreated', (data) => {
+        gameState.game.code = data.code;
+        showGameScreen();
+        UI.showNotification(`Partie créée ! Code : ${data.code}`);
+    });
+
+    socket.on('playerJoined', (data) => {
+        UI.updatePlayersList(data.players);
+        UI.showNotification(`${data.playerName} a rejoint la partie`);
+    });
+
+    socket.on('gameState', (state) => {
+        updateGameState(state);
+    });
+
+    socket.on('missionUpdated', (mission) => {
+        document.getElementById('missionText').textContent = mission.task;
+        document.getElementById('suggestionText').textContent = mission.suggestion;
+    });
+
+    socket.on('timerUpdate', (time) => {
+        updateTimer(time);
+    });
+
+    socket.on('error', (message) => {
+        UI.showNotification(message, 'error');
+    });
 }
 
-// Vérification accès admin
-async function checkAdminAccess() {
-    const credentials = localStorage.getItem('adminCredentials');
-    if (credentials) {
-        const { email, code } = JSON.parse(credentials);
-        if (email === 'splenderra@gmail.com' && code === 'MASTER-ASCENSION-2024') {
-            gameState.player.isAdmin = true;
-            console.log('🔐 Accès admin activé');
-        }
-    }
-}
-
-// Gestion connexion/création
-async function handleJoinGame() {
-    const code = document.getElementById('gameCode').value.trim().toUpperCase();
-    const name = document.getElementById('playerName').value.trim();
-    const adminPass = code === 'MASTER-ASCENSION-2024';
-
-    if (adminPass) {
-        handleAdminLogin(name);
-        return;
-    }
+// Gestion connexion
+function handleJoin() {
+    const code = document.getElementById('joinCode').value.trim().toUpperCase();
+    const name = document.getElementById('joinName').value.trim();
 
     if (!code || !name) {
         UI.showNotification('Remplis tous les champs', 'error');
         return;
     }
 
-    gameState.player.name = name;
-    socket.emit('joinGame', { gameCode: code, playerName: name });
-}
-
-async function handleCreateGame() {
-    if (!gameState.player.isAdmin) {
-        UI.showNotification('Action non autorisée', 'error');
+    // Check admin login
+    if (code === 'MASTER-ASCENSION-2024') {
+        handleAdminLogin(name);
         return;
     }
 
-    try {
-        const response = await fetch('/game/create', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-                theme: gameState.game.theme,
-                settings: { 
-                    voiceEnabled: true, 
-                    soundEnabled: true 
-                }
-            })
-        });
-
-        const data = await response.json();
-        if (data.success) {
-            gameState.game.code = data.gameCode;
-            UI.showGameScreen();
-            UI.showNotification(`Partie créée ! Code : ${data.gameCode}`, 'success');
-        }
-    } catch (error) {
-        UI.showNotification('Erreur création partie', 'error');
-    }
-}
-
-async function handleAdminLogin(name) {
-    const credentials = {
-        email: 'splenderra@gmail.com',
-        code: 'MASTER-ASCENSION-2024'
-    };
-    localStorage.setItem('adminCredentials', JSON.stringify(credentials));
-    gameState.player.isAdmin = true;
+    // Regular join
     gameState.player.name = name;
-    UI.showNotification('Connecté comme admin', 'success');
-    UI.showGameScreen();
+    socket.emit('joinGame', { code, name });
 }
 
-// Gestion des événements de jeu
-function handleGameState(state) {
-    gameState.game = { ...gameState.game, ...state };
-    gameState.game.players = state.players;
-    UI.updateGameDisplay(state);
-}
-
-function handlePlayerJoined(player) {
-    if (!gameState.game.players.find(p => p.id === player.id)) {
-        gameState.game.players.push(player);
+// Création de partie
+function handleCreate() {
+    if (!gameState.player.isAdmin) {
+        UI.showNotification('Accès non autorisé', 'error');
+        return;
     }
-    UI.updatePlayersList(gameState.game.players);
-    UI.showNotification(`${player.name} a rejoint la partie`, 'info');
+
+    socket.emit('createGame');
 }
 
-function handleTurnStart(data) {
-    gameState.game.currentPlayer = data.currentPlayer;
-    gameState.game.currentMission = data.mission;
-    UI.updateMission(data.mission);
-    UI.updatePlayerStatus();
-
-    if (data.currentPlayer === gameState.player.id) {
-        UI.showPerformerControls();
-        document.getElementById('regenerateMission').style.display = 
-            gameState.game.regenerationsLeft > 0 ? 'block' : 'none';
-    } else {
-        UI.showVoterControls();
-    }
+// Login admin
+function handleAdminLogin(name) {
+    gameState.player.name = name;
+    gameState.player.isAdmin = true;
+    UI.showNotification('Connecté comme admin');
+    showGameScreen();
 }
 
-function handleTurnEnd(playerId) {
-    if (playerId === gameState.player.id) {
-        UI.showNotification('Ton tour est terminé', 'info');
-    }
-    UI.hideMissionControls();
-}
-
-function handleScoreUpdate(data) {
-    gameState.game.players = data.players;
-    const player = data.players.find(p => p.id === gameState.player.id);
-    if (player) {
-        gameState.player.score = player.score;
-        gameState.player.credibilityPoints = player.credibilityPoints;
-    }
-    UI.updateScores();
-}
-
-// Gestion des actions joueur
+// Vote
 function handleVote() {
-    if (gameState.player.credibilityPoints < 1) {
-        UI.showNotification('Plus de points de crédibilité', 'error');
+    if (gameState.player.points < 1) {
+        UI.showNotification('Plus de points disponibles', 'error');
         return;
     }
 
     socket.emit('vote', {
         gameCode: gameState.game.code,
-        voterId: gameState.player.id,
         targetId: gameState.game.currentPlayer
     });
+
+    gameState.player.points--;
+    UI.updatePoints();
 }
 
-function handleJokerUse() {
-    const targetId = document.getElementById('jokerTarget').value;
-    if (!targetId) {
-        UI.showNotification('Choisis un joueur', 'error');
-        return;
-    }
-
+// Joker
+function handleJoker() {
     if (!gameState.player.hasJoker) {
         UI.showNotification('Joker déjà utilisé', 'error');
         return;
     }
 
+    const targetId = document.getElementById('jokerTarget').value;
+    if (!targetId) {
+        UI.showNotification('Sélectionne un joueur', 'error');
+        return;
+    }
+
     socket.emit('useJoker', {
         gameCode: gameState.game.code,
-        playerId: gameState.player.id,
-        targetId
+        targetId: targetId
     });
+
+    gameState.player.hasJoker = false;
+    UI.updateJokerStatus();
 }
 
-function handleJokerUsed(data) {
-    if (data.playerId === gameState.player.id) {
-        gameState.player.hasJoker = false;
-        UI.updateJokerStatus();
-    }
-    UI.showNotification(`${data.playerName} utilise son Joker sur ${data.targetName}`, 'info');
-}
-
-function handleRegenerateMission() {
-    if (gameState.game.regenerationsLeft <= 0) {
+// Régénération de mission
+function handleRegen() {
+    if (gameState.game.regenCount < 1) {
         UI.showNotification('Plus de régénérations disponibles', 'error');
         return;
     }
 
     socket.emit('regenerateMission', {
-        gameCode: gameState.game.code,
-        playerId: gameState.player.id,
-        level: gameState.game.currentMission.level
+        gameCode: gameState.game.code
     });
 
-    gameState.game.regenerationsLeft--;
-    UI.updateRegenerationsLeft();
+    gameState.game.regenCount--;
+    document.getElementById('regenCount').textContent = gameState.game.regenCount;
 }
 
-function handleMissionRegenerated(mission) {
-    gameState.game.currentMission = mission;
-    UI.updateMission(mission);
-    UI.showNotification('Nouvelle mission générée', 'success');
+// Mise à jour timer
+function updateTimer(timeLeft) {
+    const minutes = Math.floor(timeLeft / 60);
+    const seconds = timeLeft % 60;
+    document.getElementById('gameTimer').textContent = 
+        `${minutes}:${seconds.toString().padStart(2, '0')}`;
 }
 
-function handleError(message) {
-    UI.showNotification(message, 'error');
+// Mise à jour état du jeu
+function updateGameState(state) {
+    gameState.game = { ...gameState.game, ...state };
+    UI.updateGameDisplay(state);
+}
+
+// Affichage écran de jeu
+function showGameScreen() {
+    document.getElementById('loginScreen').classList.add('hidden');
+    document.getElementById('gameScreen').classList.remove('hidden');
 }
 
 // Export pour utilisation globale

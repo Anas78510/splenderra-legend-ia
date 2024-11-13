@@ -1,160 +1,39 @@
-// Gestionnaire d'interface Splenderra
 const UI = {
-    // États
-    state: {
-        currentScreen: 'login',
-        isAnimating: false,
-        notifications: []
-    },
-
-    // Initialisation
-    init() {
-        console.log('🎨 Initialisation interface Splenderra');
-        this.setupAnimations();
-    },
-
-    // Configuration animations
-    setupAnimations() {
-        document.querySelectorAll('.animate__animated').forEach(element => {
-            element.addEventListener('animationend', () => {
-                element.classList.remove('animate__animated');
-            });
-        });
-    },
-
-    // Changement d'écran
-    showGameScreen() {
-        this.switchScreen('login', 'game');
-        this.updateGameStatus();
-    },
-
-    switchScreen(from, to) {
-        if (this.state.isAnimating) return;
-        this.state.isAnimating = true;
-
-        const fromScreen = document.getElementById(`${from}Screen`);
-        const toScreen = document.getElementById(`${to}Screen`);
-
-        fromScreen.classList.add('animate__animated', 'animate__fadeOut');
-        
-        setTimeout(() => {
-            fromScreen.classList.add('hidden');
-            fromScreen.classList.remove('animate__animated', 'animate__fadeOut');
-            
-            toScreen.classList.remove('hidden');
-            toScreen.classList.add('animate__animated', 'animate__fadeIn');
-            
-            this.state.currentScreen = to;
-            this.state.isAnimating = false;
-        }, 500);
-    },
-
-    // Mise à jour mission
-    updateMission(mission) {
-        const missionSection = document.getElementById('missionSection');
-        const missionText = document.getElementById('missionText');
-        const suggestionText = document.getElementById('suggestionText');
-
-        if (!missionSection || !missionText || !suggestionText) return;
-
-        missionSection.classList.add('animate__animated', 'animate__fadeInDown');
-        
-        missionText.textContent = mission.task;
-        suggestionText.textContent = mission.suggestion;
-
-        setTimeout(() => {
-            missionSection.classList.remove('animate__animated', 'animate__fadeInDown');
-        }, 1000);
-    },
-
-    // Gestion timer
-    updateTimer(timeLeft) {
-        const timerElement = document.getElementById('timer');
-        if (!timerElement) return;
-
-        const minutes = Math.floor(timeLeft / 60);
-        const seconds = timeLeft % 60;
-        timerElement.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-
-        if (timeLeft <= 30) {
-            timerElement.classList.add('timer-warning');
-        }
-        if (timeLeft <= 10) {
-            timerElement.classList.remove('timer-warning');
-            timerElement.classList.add('timer-danger');
-        }
-    },
-
-    // Mise à jour joueurs
+    // Mise à jour liste des joueurs
     updatePlayersList(players) {
         const container = document.getElementById('playersList');
         if (!container) return;
 
         container.innerHTML = '';
         players.forEach(player => {
-            container.appendChild(this.createPlayerCard(player));
+            const div = document.createElement('div');
+            div.className = `bg-gray-700 bg-opacity-50 rounded-lg p-3 flex justify-between items-center
+                ${player.id === gameState.game.currentPlayer ? 'border-l-4 border-purple-500' : ''}`;
+
+            div.innerHTML = `
+                <div class="flex items-center">
+                    <span class="font-medium">${player.name}</span>
+                    ${player.hasJoker ? '<span class="ml-2">🃏</span>' : ''}
+                </div>
+                <span class="bg-purple-600 px-3 py-1 rounded-full">${player.score}</span>
+            `;
+
+            container.appendChild(div);
         });
 
-        this.updateJokerTargetList(players);
+        // Mise à jour liste joker
+        this.updateJokerTargets(players);
     },
 
-    createPlayerCard(player) {
-        const div = document.createElement('div');
-        div.className = `player-card ${
-            player.id === gameState.game.currentPlayer ? 'player-active' : ''
-        }`;
-
-        div.innerHTML = `
-            <div class="flex items-center space-x-3">
-                <span class="font-medium">${player.name}</span>
-                ${player.hasJoker ? '<span class="text-blue-400">🃏</span>' : ''}
-            </div>
-            <div class="flex items-center space-x-3">
-                <span class="level-badge">Niveau ${player.level || 1}</span>
-                <span class="score-badge">${player.score}</span>
-            </div>
-        `;
-
-        return div;
-    },
-
-    // Mise à jour contrôles
-    showPerformerControls() {
-        const voteSection = document.getElementById('voteSection');
-        const jokerSection = document.getElementById('jokerSection');
-        const missionControls = document.getElementById('missionControls');
-
-        if (voteSection) voteSection.classList.add('hidden');
-        if (jokerSection && gameState.player.hasJoker) {
-            jokerSection.classList.remove('hidden');
-        }
-        if (missionControls) missionControls.classList.remove('hidden');
-    },
-
-    showVoterControls() {
-        const voteSection = document.getElementById('voteSection');
-        const jokerSection = document.getElementById('jokerSection');
-        const missionControls = document.getElementById('missionControls');
-
-        if (voteSection) voteSection.classList.remove('hidden');
-        if (jokerSection) jokerSection.classList.add('hidden');
-        if (missionControls) missionControls.classList.add('hidden');
-    },
-
-    hideMissionControls() {
-        const missionControls = document.getElementById('missionControls');
-        if (missionControls) missionControls.classList.add('hidden');
-    },
-
-    // Mise à jour Joker
-    updateJokerTargetList(players) {
+    // Mise à jour cibles du joker
+    updateJokerTargets(players) {
         const select = document.getElementById('jokerTarget');
         if (!select) return;
 
         select.innerHTML = '<option value="">Choisir un joueur</option>';
         
         players
-            .filter(p => p.id !== gameState.player.id && p.isConnected)
+            .filter(p => p.id !== gameState.player.id)
             .forEach(player => {
                 const option = document.createElement('option');
                 option.value = player.id;
@@ -163,83 +42,77 @@ const UI = {
             });
     },
 
-    updateJokerStatus() {
-        const jokerButton = document.getElementById('useJoker');
-        const jokerSection = document.getElementById('jokerSection');
+    // Mise à jour affichage du jeu
+    updateGameDisplay(state) {
+        // Score du joueur
+        const scoreElement = document.getElementById('yourScore');
+        if (scoreElement) {
+            scoreElement.textContent = `Score: ${gameState.player.score}`;
+        }
 
+        // Mission actuelle
+        if (state.currentMission) {
+            document.getElementById('missionText').textContent = state.currentMission.task;
+            document.getElementById('suggestionText').textContent = state.currentMission.suggestion;
+        }
+
+        // Contrôles selon le rôle
+        this.updateControls(state);
+    },
+
+    // Mise à jour des contrôles
+    updateControls(state) {
+        const voteSection = document.getElementById('voteSection');
+        const jokerSection = document.getElementById('jokerSection');
+        const regenSection = document.getElementById('regenSection');
+
+        // Si c'est notre tour
+        if (state.currentPlayer === gameState.player.id) {
+            if (voteSection) voteSection.classList.add('hidden');
+            if (jokerSection && gameState.player.hasJoker) jokerSection.classList.remove('hidden');
+            if (regenSection) regenSection.classList.remove('hidden');
+        } 
+        // Si c'est le tour d'un autre
+        else {
+            if (voteSection) voteSection.classList.remove('hidden');
+            if (jokerSection) jokerSection.classList.add('hidden');
+            if (regenSection) regenSection.classList.add('hidden');
+        }
+    },
+
+    // Mise à jour points
+    updatePoints() {
+        const voteButton = document.getElementById('voteButton');
+        if (voteButton) {
+            voteButton.textContent = `Voter (${gameState.player.points} point${gameState.player.points !== 1 ? 's' : ''})`;
+            voteButton.disabled = gameState.player.points < 1;
+            voteButton.classList.toggle('opacity-50', gameState.player.points < 1);
+        }
+    },
+
+    // Mise à jour statut joker
+    updateJokerStatus() {
+        const jokerSection = document.getElementById('jokerSection');
+        const jokerButton = document.getElementById('jokerButton');
+        
+        if (jokerSection) {
+            jokerSection.classList.toggle('hidden', !gameState.player.hasJoker);
+        }
         if (jokerButton) {
             jokerButton.disabled = !gameState.player.hasJoker;
             jokerButton.classList.toggle('opacity-50', !gameState.player.hasJoker);
         }
-
-        if (jokerSection) {
-            jokerSection.classList.toggle('hidden', !gameState.player.hasJoker);
-        }
-    },
-
-    // Mise à jour régénérations
-    updateRegenerationsLeft() {
-        const counter = document.getElementById('regenerationsLeft');
-        if (counter) {
-            counter.textContent = gameState.game.regenerationsLeft;
-            if (gameState.game.regenerationsLeft <= 0) {
-                document.getElementById('regenerateMission')?.classList.add('hidden');
-            }
-        }
-    },
-
-    // Mise à jour scores
-    updateScores() {
-        const playerScore = document.getElementById('playerScore');
-        const credibilityPoints = document.getElementById('credibilityPoints');
-
-        if (playerScore) {
-            playerScore.textContent = `Score: ${gameState.player.score}`;
-        }
-
-        if (credibilityPoints) {
-            credibilityPoints.textContent = gameState.player.credibilityPoints;
-        }
-
-        this.updatePlayersList(gameState.game.players);
-    },
-
-    // Mise à jour statut joueur
-    updatePlayerStatus() {
-        const playerInfo = document.getElementById('playerInfo');
-        const playerName = document.getElementById('playerName');
-
-        if (playerInfo) playerInfo.classList.remove('hidden');
-        if (playerName) playerName.textContent = gameState.player.name;
-
-        this.updateScores();
-        this.updateJokerStatus();
-    },
-
-    // Mise à jour affichage jeu
-    updateGameDisplay(state) {
-        if (state.currentMission) {
-            this.updateMission(state.currentMission);
-        }
-        this.updatePlayersList(state.players);
-        this.updatePlayerStatus();
     },
 
     // Notifications
     showNotification(message, type = 'info') {
         const notification = document.createElement('div');
-        notification.className = `notification ${type} animate__animated animate__slideInRight`;
+        notification.className = `fixed bottom-4 right-4 bg-gray-800 text-white px-6 py-3 rounded-lg shadow-lg
+            ${type === 'error' ? 'bg-red-900' : 'bg-gray-800'}`;
         
-        const icons = {
-            success: '✅',
-            error: '❌',
-            info: 'ℹ️',
-            warning: '⚠️'
-        };
-
         notification.innerHTML = `
             <div class="flex items-center">
-                <span class="mr-2">${icons[type]}</span>
+                <span class="mr-2">${type === 'error' ? '❌' : '✅'}</span>
                 <span>${message}</span>
             </div>
         `;
@@ -247,17 +120,45 @@ const UI = {
         document.body.appendChild(notification);
 
         setTimeout(() => {
-            notification.classList.remove('animate__slideInRight');
-            notification.classList.add('animate__slideOutRight');
-            setTimeout(() => notification.remove(), 500);
+            notification.style.opacity = '0';
+            notification.style.transform = 'translateX(100%)';
+            setTimeout(() => notification.remove(), 300);
         }, 3000);
+    },
+
+    // Animation mission
+    animateMission() {
+        const mission = document.getElementById('missionText');
+        if (!mission) return;
+
+        mission.style.opacity = '0';
+        setTimeout(() => {
+            mission.style.opacity = '1';
+            mission.style.transform = 'scale(1.05)';
+            setTimeout(() => {
+                mission.style.transform = 'scale(1)';
+            }, 200);
+        }, 300);
+    },
+
+    // Animation vote
+    animateVote() {
+        const score = document.getElementById('yourScore');
+        if (!score) return;
+
+        score.classList.add('scale-125');
+        setTimeout(() => score.classList.remove('scale-125'), 300);
+    },
+
+    // Animation joker
+    animateJoker() {
+        const jokerButton = document.getElementById('jokerButton');
+        if (!jokerButton) return;
+
+        jokerButton.classList.add('rotate-12');
+        setTimeout(() => jokerButton.classList.remove('rotate-12'), 300);
     }
 };
-
-// Initialisation au chargement
-document.addEventListener('DOMContentLoaded', () => {
-    UI.init();
-});
 
 // Export pour utilisation globale
 window.UI = UI;
