@@ -20,14 +20,29 @@ const gameState = {
 
 // Initialisation au chargement
 document.addEventListener('DOMContentLoaded', () => {
+    console.log('🎮 Initialisation du jeu');
     initializeGame();
 });
 
 // Initialisation du jeu
 function initializeGame() {
     // Boutons écran login
-    document.getElementById('joinButton').addEventListener('click', handleJoin);
-    document.getElementById('createButton').addEventListener('click', handleCreate);
+    const joinButton = document.getElementById('joinButton');
+    const createButton = document.getElementById('createButton');
+
+    if (joinButton) {
+        joinButton.addEventListener('click', () => {
+            console.log('👆 Clic sur Rejoindre');
+            handleJoin();
+        });
+    }
+
+    if (createButton) {
+        createButton.addEventListener('click', () => {
+            console.log('👆 Clic sur Créer');
+            handleJoin(); // On utilise handleJoin pour tout
+        });
+    }
 
     // Boutons de jeu
     document.getElementById('voteButton')?.addEventListener('click', handleVote);
@@ -41,25 +56,29 @@ function initializeGame() {
 // Gestion des événements socket
 function setupSocketListeners() {
     socket.on('connect', () => {
-        console.log('Connecté au serveur');
+        console.log('✅ Connecté au serveur');
     });
 
     socket.on('gameCreated', (data) => {
+        console.log('🎮 Partie créée:', data);
         gameState.game.code = data.code;
         showGameScreen();
         UI.showNotification(`Partie créée ! Code : ${data.code}`);
     });
 
     socket.on('playerJoined', (data) => {
+        console.log('👥 Joueur rejoint:', data);
         UI.updatePlayersList(data.players);
         UI.showNotification(`${data.playerName} a rejoint la partie`);
     });
 
     socket.on('gameState', (state) => {
+        console.log('🔄 Mise à jour état:', state);
         updateGameState(state);
     });
 
     socket.on('missionUpdated', (mission) => {
+        console.log('📜 Nouvelle mission:', mission);
         document.getElementById('missionText').textContent = mission.task;
         document.getElementById('suggestionText').textContent = mission.suggestion;
     });
@@ -69,47 +88,48 @@ function setupSocketListeners() {
     });
 
     socket.on('error', (message) => {
+        console.error('❌ Erreur:', message);
         UI.showNotification(message, 'error');
     });
 }
 
-// Gestion connexion
+// Gestion connexion - CORRIGÉ
 function handleJoin() {
     const code = document.getElementById('joinCode').value.trim().toUpperCase();
     const name = document.getElementById('joinName').value.trim();
 
-    if (!code || !name) {
-        UI.showNotification('Remplis tous les champs', 'error');
+    console.log('🔑 Tentative connexion:', { code, name });
+
+    if (!name) {
+        UI.showNotification('Entre un pseudo', 'error');
         return;
     }
 
-    // Check admin login
+    // Code admin spécial
     if (code === 'MASTER-ASCENSION-2024') {
-        handleAdminLogin(name);
+        console.log('👑 Connexion admin');
+        gameState.player.isAdmin = true;
+        gameState.player.name = name;
+        socket.emit('createGame');
         return;
     }
 
-    // Regular join
+    // Si c'est un clic sur "Nouvelle partie" sans code
+    if (!code && gameState.player.isAdmin) {
+        console.log('🎲 Création nouvelle partie');
+        socket.emit('createGame');
+        return;
+    }
+
+    // Connexion normale avec code
+    if (!code) {
+        UI.showNotification('Entre un code de partie', 'error');
+        return;
+    }
+
+    console.log('👤 Connexion joueur normale');
     gameState.player.name = name;
     socket.emit('joinGame', { code, name });
-}
-
-// Création de partie
-function handleCreate() {
-    if (!gameState.player.isAdmin) {
-        UI.showNotification('Accès non autorisé', 'error');
-        return;
-    }
-
-    socket.emit('createGame');
-}
-
-// Login admin
-function handleAdminLogin(name) {
-    gameState.player.name = name;
-    gameState.player.isAdmin = true;
-    UI.showNotification('Connecté comme admin');
-    showGameScreen();
 }
 
 // Vote
@@ -119,6 +139,7 @@ function handleVote() {
         return;
     }
 
+    console.log('🗳️ Vote pour le joueur actuel');
     socket.emit('vote', {
         gameCode: gameState.game.code,
         targetId: gameState.game.currentPlayer
@@ -141,6 +162,7 @@ function handleJoker() {
         return;
     }
 
+    console.log('🃏 Utilisation Joker sur:', targetId);
     socket.emit('useJoker', {
         gameCode: gameState.game.code,
         targetId: targetId
@@ -157,6 +179,7 @@ function handleRegen() {
         return;
     }
 
+    console.log('🎲 Régénération mission');
     socket.emit('regenerateMission', {
         gameCode: gameState.game.code
     });
@@ -169,8 +192,8 @@ function handleRegen() {
 function updateTimer(timeLeft) {
     const minutes = Math.floor(timeLeft / 60);
     const seconds = timeLeft % 60;
-    document.getElementById('gameTimer').textContent = 
-        `${minutes}:${seconds.toString().padStart(2, '0')}`;
+    const display = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+    document.getElementById('gameTimer').textContent = display;
 }
 
 // Mise à jour état du jeu
