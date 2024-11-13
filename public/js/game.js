@@ -1,230 +1,196 @@
-// État global du jeu
+// Gestion du jeu Splenderra
 const gameState = {
-    // Informations utilisateur
+    // État joueur
     player: {
         id: null,
         name: '',
-        type: null, // 'host' ou 'player'
+        isAdmin: false,
         credibilityPoints: 1,
         hasJoker: true,
-        isArbiter: false
-    },
-    
-    // État de la partie
-    game: {
-        code: null,
-        theme: null,
-        status: 'waiting',
-        currentPlayer: null,
-        players: [],
-        round: 0,
-        settings: {
-            voiceEnabled: false,
-            soundEnabled: false
-        }
+        score: 0
     },
 
-    // Timers et missions
-    timer: null,
-    currentMission: null
+    // État partie
+    game: {
+        code: null,
+        theme: 'humour',
+        players: [],
+        currentPlayer: null,
+        status: 'waiting',
+        currentMission: null,
+        regenerationsLeft: 3
+    }
 };
 
 // Initialisation Socket.IO
 const socket = io();
 
 // Initialisation du jeu
-function initializeGame() {
-    console.log('🎮 Initialisation Splenderra : Legend IA');
-    setupSocketListeners();
+document.addEventListener('DOMContentLoaded', () => {
+    console.log('🎮 Initialisation Splenderra');
     setupEventListeners();
+    setupSocketListeners();
+    checkAdminAccess();
+});
+
+// Configuration des écouteurs d'événements
+function setupEventListeners() {
+    // Connexion et création de partie
+    document.getElementById('joinGame').addEventListener('click', handleJoinGame);
+    document.getElementById('createGame').addEventListener('click', handleCreateGame);
+
+    // Boutons de jeu
+    document.getElementById('voteButton')?.addEventListener('click', handleVote);
+    document.getElementById('useJoker')?.addEventListener('click', handleJokerUse);
+    document.getElementById('regenerateMission')?.addEventListener('click', handleRegenerateMission);
 }
 
-// Configuration des écouteurs Socket.IO
+// Configuration Socket.IO
 function setupSocketListeners() {
     socket.on('connect', () => {
         console.log('✅ Connecté au serveur');
         UI.showNotification('Connecté au serveur', 'success');
     });
 
-    // Gestion connexion joueur
-    socket.on('playerConnected', (data) => {
-        console.log('👤 Joueur connecté:', data);
-        handlePlayerConnection(data);
-    });
-
-    // Mise à jour état partie
-    socket.on('gameState', (state) => {
-        console.log('🔄 Mise à jour état:', state);
-        updateGameState(state);
-    });
-
-    // Démarrage tour
-    socket.on('turnStarted', (data) => {
-        console.log('🎯 Tour démarré:', data);
-        handleTurnStart(data);
-    });
-
-    // Timer
-    socket.on('timerUpdate', (timeLeft) => {
-        UI.updateTimer(timeLeft);
-    });
-
-    // Votes et scores
-    socket.on('voteRegistered', (data) => {
-        console.log('🗳️ Vote enregistré:', data);
-        handleVoteRegistration(data);
-    });
-
-    socket.on('scoreUpdate', (data) => {
-        console.log('📊 Scores mis à jour:', data);
-        updateScores(data);
-    });
-
-    // Joker
-    socket.on('jokerUsed', (data) => {
-        console.log('🃏 Joker utilisé:', data);
-        handleJokerUsed(data);
-    });
-
-    // Arbitre
-    socket.on('arbiterAssigned', (data) => {
-        console.log('👑 Nouvel arbitre:', data);
-        handleArbiterAssignment(data);
-    });
-
-    // Erreurs
-    socket.on('error', (message) => {
-        console.error('❌ Erreur:', message);
-        UI.showNotification(message, 'error');
-    });
+    socket.on('gameState', handleGameState);
+    socket.on('playerJoined', handlePlayerJoined);
+    socket.on('turnStarted', handleTurnStart);
+    socket.on('timerUpdate', UI.updateTimer);
+    socket.on('turnEnded', handleTurnEnd);
+    socket.on('scoreUpdate', handleScoreUpdate);
+    socket.on('jokerUsed', handleJokerUsed);
+    socket.on('missionRegenerated', handleMissionRegenerated);
+    socket.on('error', handleError);
 }
 
-// Configuration des écouteurs d'événements
-function setupEventListeners() {
-    // Connexion hôte
-    document.getElementById('hostLogin')?.addEventListener('click', () => {
-        const email = document.getElementById('hostEmail').value;
-        const key = document.getElementById('activationKey').value;
-        loginAsHost(email, key);
-    });
-
-    // Connexion joueur
-    document.getElementById('playerJoin')?.addEventListener('click', () => {
-        const code = document.getElementById('inviteCode').value;
-        const name = document.getElementById('playerName').value;
-        joinGame(code, name);
-    });
-
-    // Création partie (hôte)
-    document.getElementById('createGame')?.addEventListener('click', createGame);
-
-    // Vote
-    document.getElementById('voteButton')?.addEventListener('click', vote);
-    document.getElementById('arbiterVoteYes')?.addEventListener('click', () => arbiterVote(true));
-    document.getElementById('arbiterVoteNo')?.addEventListener('click', () => arbiterVote(false));
-
-    // Joker
-    document.getElementById('useJoker')?.addEventListener('click', useJoker);
-}
-
-// Connexion en tant qu'hôte
-async function loginAsHost(email, key) {
-    console.log('🔑 Tentative connexion hôte...');
-    try {
-        const response = await fetch('/host/verify', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, key })
-        });
-
-        const data = await response.json();
-        if (data.success) {
-            gameState.player.type = 'host';
-            gameState.player.id = data.hostId;
-            UI.showHostConfig();
-            UI.showNotification('Connecté en tant qu\'hôte', 'success');
-        } else {
-            UI.showNotification('Clé d\'activation invalide', 'error');
+// Vérification accès admin
+async function checkAdminAccess() {
+    const credentials = localStorage.getItem('adminCredentials');
+    if (credentials) {
+        const { email, code } = JSON.parse(credentials);
+        if (email === 'splenderra@gmail.com' && code === 'MASTER-ASCENSION-2024') {
+            gameState.player.isAdmin = true;
+            console.log('🔐 Accès admin activé');
         }
-    } catch (error) {
-        console.error('❌ Erreur connexion hôte:', error);
-        UI.showNotification('Erreur de connexion', 'error');
     }
 }
 
-// Rejoindre une partie
-function joinGame(code, name) {
-    if (!code || !name) {
-        UI.showNotification('Code et pseudo requis', 'error');
+// Gestion connexion/création
+async function handleJoinGame() {
+    const code = document.getElementById('gameCode').value.trim().toUpperCase();
+    const name = document.getElementById('playerName').value.trim();
+    const adminPass = code === 'MASTER-ASCENSION-2024';
+
+    if (adminPass) {
+        handleAdminLogin(name);
         return;
     }
 
-    console.log('🎮 Tentative de connexion:', { code, name });
+    if (!code || !name) {
+        UI.showNotification('Remplis tous les champs', 'error');
+        return;
+    }
+
     gameState.player.name = name;
-    socket.emit('joinGame', { code, name });
+    socket.emit('joinGame', { gameCode: code, playerName: name });
 }
 
-// Création de partie (hôte)
-async function createGame() {
-    if (gameState.player.type !== 'host') return;
+async function handleCreateGame() {
+    if (!gameState.player.isAdmin) {
+        UI.showNotification('Action non autorisée', 'error');
+        return;
+    }
 
-    const theme = document.getElementById('gameTheme').value;
-    const settings = {
-        voiceEnabled: document.getElementById('voiceEnabled').checked,
-        soundEnabled: document.getElementById('soundEnabled').checked
-    };
-
-    console.log('🎲 Création partie:', { theme, settings });
-    
     try {
         const response = await fetch('/game/create', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ theme, settings })
+            body: JSON.stringify({ 
+                theme: gameState.game.theme,
+                settings: { 
+                    voiceEnabled: true, 
+                    soundEnabled: true 
+                }
+            })
         });
 
         const data = await response.json();
         if (data.success) {
             gameState.game.code = data.gameCode;
-            UI.showInviteCode(data.gameCode);
-            UI.showNotification('Partie créée avec succès', 'success');
-            socket.emit('hostGame', data.gameCode);
+            UI.showGameScreen();
+            UI.showNotification(`Partie créée ! Code : ${data.gameCode}`, 'success');
         }
     } catch (error) {
-        console.error('❌ Erreur création partie:', error);
-        UI.showNotification('Erreur lors de la création', 'error');
+        UI.showNotification('Erreur création partie', 'error');
     }
 }
 
-// Gestion des tours
-function handleTurnStart(data) {
-    gameState.currentMission = data.mission;
-    gameState.game.currentPlayer = data.playerId;
-    
-    UI.updateMission(data.mission);
-    UI.updatePlayerStatus(data.playerId);
+async function handleAdminLogin(name) {
+    const credentials = {
+        email: 'splenderra@gmail.com',
+        code: 'MASTER-ASCENSION-2024'
+    };
+    localStorage.setItem('adminCredentials', JSON.stringify(credentials));
+    gameState.player.isAdmin = true;
+    gameState.player.name = name;
+    UI.showNotification('Connecté comme admin', 'success');
+    UI.showGameScreen();
+}
 
-    // Activation des contrôles selon le rôle
-    if (data.playerId === gameState.player.id) {
+// Gestion des événements de jeu
+function handleGameState(state) {
+    gameState.game = { ...gameState.game, ...state };
+    gameState.game.players = state.players;
+    UI.updateGameDisplay(state);
+}
+
+function handlePlayerJoined(player) {
+    if (!gameState.game.players.find(p => p.id === player.id)) {
+        gameState.game.players.push(player);
+    }
+    UI.updatePlayersList(gameState.game.players);
+    UI.showNotification(`${player.name} a rejoint la partie`, 'info');
+}
+
+function handleTurnStart(data) {
+    gameState.game.currentPlayer = data.currentPlayer;
+    gameState.game.currentMission = data.mission;
+    UI.updateMission(data.mission);
+    UI.updatePlayerStatus();
+
+    if (data.currentPlayer === gameState.player.id) {
         UI.showPerformerControls();
-        if (gameState.player.hasJoker) UI.showJokerSection();
-    } else if (gameState.player.isArbiter) {
-        UI.showArbiterControls();
+        document.getElementById('regenerateMission').style.display = 
+            gameState.game.regenerationsLeft > 0 ? 'block' : 'none';
     } else {
         UI.showVoterControls();
     }
-
-    // Synthèse vocale si activée
-    if (gameState.game.settings.voiceEnabled) {
-        speakMission(data.mission);
-    }
 }
 
-// Système de vote
-function vote() {
-    if (!gameState.game.currentPlayer || gameState.player.credibilityPoints < 1) return;
-    
-    console.log('🗳️ Vote pour:', gameState.game.currentPlayer);
+function handleTurnEnd(playerId) {
+    if (playerId === gameState.player.id) {
+        UI.showNotification('Ton tour est terminé', 'info');
+    }
+    UI.hideMissionControls();
+}
+
+function handleScoreUpdate(data) {
+    gameState.game.players = data.players;
+    const player = data.players.find(p => p.id === gameState.player.id);
+    if (player) {
+        gameState.player.score = player.score;
+        gameState.player.credibilityPoints = player.credibilityPoints;
+    }
+    UI.updateScores();
+}
+
+// Gestion des actions joueur
+function handleVote() {
+    if (gameState.player.credibilityPoints < 1) {
+        UI.showNotification('Plus de points de crédibilité', 'error');
+        return;
+    }
+
     socket.emit('vote', {
         gameCode: gameState.game.code,
         voterId: gameState.player.id,
@@ -232,70 +198,58 @@ function vote() {
     });
 }
 
-// Vote de l'arbitre
-function arbiterVote(isPositive) {
-    if (!gameState.player.isArbiter) return;
-    
-    console.log('👑 Vote arbitre:', isPositive);
-    socket.emit('arbiterVote', {
-        gameCode: gameState.game.code,
-        isPositive
-    });
-}
-
-// Utilisation du Joker
-function useJoker() {
-    if (!gameState.player.hasJoker) return;
-    
+function handleJokerUse() {
     const targetId = document.getElementById('jokerTarget').value;
     if (!targetId) {
-        UI.showNotification('Sélectionne un joueur', 'error');
+        UI.showNotification('Choisis un joueur', 'error');
         return;
     }
 
-    console.log('🃏 Utilisation Joker sur:', targetId);
+    if (!gameState.player.hasJoker) {
+        UI.showNotification('Joker déjà utilisé', 'error');
+        return;
+    }
+
     socket.emit('useJoker', {
         gameCode: gameState.game.code,
+        playerId: gameState.player.id,
         targetId
     });
 }
 
-// Mise à jour de l'état du jeu
-function updateGameState(state) {
-    gameState.game = { ...gameState.game, ...state };
-    UI.updateGameDisplay(state);
-    updatePlayersList();
+function handleJokerUsed(data) {
+    if (data.playerId === gameState.player.id) {
+        gameState.player.hasJoker = false;
+        UI.updateJokerStatus();
+    }
+    UI.showNotification(`${data.playerName} utilise son Joker sur ${data.targetName}`, 'info');
 }
 
-// Mise à jour de la liste des joueurs
-function updatePlayersList() {
-    const playersList = document.getElementById('playersList');
-    if (!playersList) return;
+function handleRegenerateMission() {
+    if (gameState.game.regenerationsLeft <= 0) {
+        UI.showNotification('Plus de régénérations disponibles', 'error');
+        return;
+    }
 
-    playersList.innerHTML = '';
-    gameState.game.players.forEach(player => {
-        const playerCard = UI.createPlayerCard(player);
-        playersList.appendChild(playerCard);
+    socket.emit('regenerateMission', {
+        gameCode: gameState.game.code,
+        playerId: gameState.player.id,
+        level: gameState.game.currentMission.level
     });
 
-    // Mise à jour liste Joker
-    if (gameState.player.hasJoker) {
-        updateJokerTargetList();
-    }
+    gameState.game.regenerationsLeft--;
+    UI.updateRegenerationsLeft();
 }
 
-// Synthèse vocale pour les missions
-function speakMission(mission) {
-    if (!gameState.game.settings.voiceEnabled) return;
-    
-    const speech = new SpeechSynthesisUtterance();
-    speech.text = mission.task;
-    speech.lang = 'fr-FR';
-    window.speechSynthesis.speak(speech);
+function handleMissionRegenerated(mission) {
+    gameState.game.currentMission = mission;
+    UI.updateMission(mission);
+    UI.showNotification('Nouvelle mission générée', 'success');
+}
+
+function handleError(message) {
+    UI.showNotification(message, 'error');
 }
 
 // Export pour utilisation globale
 window.gameState = gameState;
-
-// Initialisation au chargement
-document.addEventListener('DOMContentLoaded', initializeGame);
