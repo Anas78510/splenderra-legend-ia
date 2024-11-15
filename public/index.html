@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Splenderra</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="/socket.io/socket.io.js"></script>
+</head>
+<body class="bg-gray-900 text-white min-h-screen">
+    <!-- Login Screen -->
+    <div id="loginScreen" class="container mx-auto px-4 py-8">
+        <div class="max-w-md mx-auto">
+            <h1 class="text-3xl font-bold mb-8 text-center">Splenderra</h1>
+            
+            <div class="bg-gray-800 rounded-lg p-6">
+                <input type="text" id="gameCode" placeholder="Code partie" 
+                    class="w-full bg-gray-700 p-3 rounded mb-4">
+                <input type="text" id="playerName" placeholder="Ton pseudo" 
+                    class="w-full bg-gray-700 p-3 rounded mb-4">
+                
+                <button id="joinBtn" class="w-full bg-purple-600 p-3 rounded mb-2">
+                    Rejoindre
+                </button>
+                <button id="createBtn" class="w-full bg-blue-600 p-3 rounded">
+                    Nouvelle partie
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Game Screen -->
+    <div id="gameScreen" class="hidden container mx-auto px-4 py-8">
+        <div class="max-w-4xl mx-auto">
+            <!-- Mission -->
+            <div class="bg-gray-800 rounded-lg p-6 mb-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-2xl font-bold">Mission</h2>
+                    <div id="timer" class="text-2xl">2:00</div>
+                </div>
+                <p id="missionText" class="text-lg"></p>
+            </div>
+
+            <!-- Players -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="bg-gray-800 rounded-lg p-6">
+                    <h2 class="text-xl font-bold mb-4">Joueurs</h2>
+                    <div id="playerList" class="space-y-3"></div>
+                </div>
+
+                <div class="space-y-4">
+                    <!-- Vote -->
+                    <div id="voteSection" class="bg-gray-800 rounded-lg p-6">
+                        <button id="voteBtn" class="w-full bg-green-600 p-3 rounded">
+                            Voter (+1)
+                        </button>
+                    </div>
+
+                    <!-- Joker -->
+                    <div id="jokerSection" class="bg-gray-800 rounded-lg p-6">
+                        <button id="jokerBtn" class="w-full bg-blue-600 p-3 rounded">
+                            Utiliser Joker
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
